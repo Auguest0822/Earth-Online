@@ -20,6 +20,7 @@
         <span>{{ item.label }}</span>
       </div>
     </div>
+
   </div>
 </template>
 
@@ -35,7 +36,7 @@ const menuItems = [
   { path: '/yearly', label: '年度记录', icon: 'Calendar' },
   { path: '/capsule', label: '时间胶囊', icon: 'Collection' },
   { path: '/achievements', label: '成就徽章', icon: 'Trophy' },
-  { path: '/friends', label: '朋友的地球', icon: 'Connection' }
+  { path: '/profile', label: '我的地球档案', icon: 'User' }
 ]
 
 const isActive = (path) => route.path === path
@@ -64,10 +65,11 @@ const navigate = (path) => {
   margin-bottom: 40px;
   
   .logo-img {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     object-fit: cover;
+    image-rendering: -webkit-optimize-contrast;
   }
 
   .logo-text {

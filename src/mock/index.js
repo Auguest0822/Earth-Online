@@ -7,24 +7,15 @@ export const getProfileData = () => {
       slogan: '生活不是为了赶路，而是为了感受路上的风景，风...',
       level: 24,
       experience: 65, // percentage
-      birthDate: '2001-05-21',
-      survivalDays: 8766,
-      survivalDuration: '23年11个月15天',
-      nextLevelExp: '还需 11 年 升级 Lv.25'
+      birthDate: '2001-05-21'
     },
     timelines: [
       {
-        year: 2025,
-        status: '未完成',
-        desc: '这一年尚未到来，敬请期待更多精彩...',
-        locked: true
-      },
-      {
-        year: 2024,
-        status: 'Lv.23',
-        event: '毕业旅行去了日本，第一次一个人出国 ✈️',
+        id: 't-2024-06-02-1',
+        date: '2024-06-02',
+        content: '毕业旅行去了日本，第一次一个人出国 ✈️',
         keywords: ['成长', '独立', '冒险'],
-        moods: ['\uD83D\uDE0A', '\uD83D\uDE01', '\uD83E\uDD29'],
+        moods: ['😊', '😁', '🤩'],
         photos: [
           'https://images.unsplash.com/photo-1542051842-83b3cd12bb3d?auto=format&fit=crop&q=80&w=150&h=100',
           'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&q=80&w=150&h=100',
@@ -32,22 +23,36 @@ export const getProfileData = () => {
         ]
       },
       {
-        year: 2023,
-        status: 'Lv.22',
-        event: '换了新工作，认识了很多有趣的人 \uD83D\uDC65',
+        id: 't-2024-06-02-2',
+        date: '2024-06-02',
+        content: '第一次在异国街头走到夜里，心里很踏实。',
+        keywords: ['旅行', '自信'],
+        moods: ['😎']
+      },
+      {
+        id: 't-2024-02-14-1',
+        date: '2024-02-14',
+        content: '给自己做了一顿晚餐，庆祝一年里最安静的节日。',
+        keywords: ['生活日常'],
+        moods: ['😊']
+      },
+      {
+        id: 't-2023-10-08-1',
+        date: '2023-10-08',
+        content: '换了新工作，认识了很多有趣的人 👥',
         keywords: ['工作', '挑战', '学习'],
-        moods: ['\uD83D\uDE0A', '\uD83E\uDD13', '\uD83D\uDE0C'],
+        moods: ['😊', '🧐', '😌'],
         photos: [
           'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=150&h=100',
           'https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&q=80&w=150&h=100'
         ]
       },
       {
-        year: 2022,
-        status: 'Lv.21',
-        event: '养了一只猫咪，它治愈了我 \uD83D\uDC31',
+        id: 't-2022-03-21-1',
+        date: '2022-03-21',
+        content: '养了一只猫咪，它治愈了我 🐱',
         keywords: ['治愈', '陪伴', '温暖'],
-        moods: ['\uD83D\uDE0D', '\uD83D\uDE0A', '\uD83E\uDD70'],
+        moods: ['😍', '😊', '🥰'],
         photos: [
           'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&q=80&w=150&h=100',
           'https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&q=80&w=150&h=100'

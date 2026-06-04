@@ -15,6 +15,11 @@ const router = createRouter({
       component: () => import('../views/ProfileView.vue')
     },
     {
+      path: '/profile',
+      name: 'profile',
+      component: () => import('../views/PersonalView.vue')
+    },
+    {
       path: '/timeline',
       name: 'timeline',
       component: () => import('../views/TimelineView.vue')
@@ -33,11 +38,6 @@ const router = createRouter({
       path: '/achievements',
       name: 'achievements',
       component: () => import('../views/AchievementView.vue')
-    },
-    {
-      path: '/friends',
-      name: 'friends',
-      component: () => import('../views/FriendsView.vue')
     }
   ]
 })

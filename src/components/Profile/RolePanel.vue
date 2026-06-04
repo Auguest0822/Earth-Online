@@ -2,40 +2,40 @@
   <div class="role-panel">
     <div class="left-section">
       <div class="greeting">
-        <h2>你好，{{ userInfo.nickname.split(' ')[0] }} <span class="emoji">{{ userInfo.nickname.split(' ')[1] }}</span></h2>
-        <p class="slogan">{{ userInfo.slogan }}</p>
+        <h2>你好，{{ displayInfo.nickname.split(' ')[0] }} <span class="emoji">{{ displayInfo.nickname.split(' ')[1] }}</span></h2>
+        <p class="slogan">{{ displayInfo.slogan }}</p>
       </div>
     </div>
     
     <div class="center-section">
       <div class="avatar-wrapper">
-        <img :src="userInfo.avatar" class="avatar" />
+        <img :src="displayInfo.avatar" class="avatar" />
         <div class="check-icon"><el-icon><Check /></el-icon></div>
       </div>
       <div class="level-info">
         <div class="level-header">
-          <h3>Lv.{{ userInfo.level }}</h3>
+          <h3>Lv.{{ displayInfo.level }}</h3>
         </div>
-        <div class="exp-text">生存年数 <b>{{ userInfo.level }}年</b> 
+        <div class="exp-text">生存年数 <b>{{ displayInfo.level }}年</b> 
           <el-icon class="info-icon"><InfoFilled /></el-icon>
         </div>
-        <el-progress :percentage="userInfo.experience" :show-text="false" color="#66C28A" />
-        <div class="exp-hint">{{ userInfo.nextLevelExp }}</div>
+        <el-progress :percentage="displayInfo.experience" :show-text="false" color="#66C28A" />
+        <div class="exp-hint">{{ displayInfo.nextLevelExp }}</div>
       </div>
     </div>
 
     <div class="right-section">
       <div class="stat-item">
         <div class="stat-icon"><el-icon><Sunrise /></el-icon> 生存天数</div>
-        <div class="stat-value">{{ userInfo.survivalDays }} <span>天</span></div>
+        <div class="stat-value">{{ displayInfo.survivalDays }} <span>天</span></div>
       </div>
       <div class="stat-item">
         <div class="stat-icon"><el-icon><Calendar /></el-icon> 出生日期</div>
-        <div class="stat-value">{{ userInfo.birthDate }}</div>
+        <div class="stat-value">{{ displayInfo.birthDate }}</div>
       </div>
       <div class="stat-item">
         <div class="stat-icon"><el-icon><Timer /></el-icon> 生存时长</div>
-        <div class="stat-value">{{ userInfo.survivalDuration }}</div>
+        <div class="stat-value">{{ displayInfo.survivalDuration }}</div>
       </div>
     </div>
   </div>
@@ -43,9 +43,20 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useProfileStore } from '@/store/profile'
 
 const props = defineProps({
   userInfo: Object
+})
+
+const profileStore = useProfileStore()
+
+const displayInfo = computed(() => {
+  if (!props.userInfo) return {}
+  return {
+    ...props.userInfo,
+    ...(profileStore.userStats || {})
+  }
 })
 </script>
 
