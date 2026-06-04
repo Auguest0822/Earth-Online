@@ -56,12 +56,18 @@
               v-for="mood in moodOptions"
               :key="mood"
               class="mood-chip"
-              :class="{ active: form.mood === mood }"
-              @click="form.mood = mood"
+              :class="{ active: form.moods.includes(mood) }"
+              @click="toggleMood(mood)"
             >
               {{ mood }}
             </button>
           </div>
+          <el-input
+            v-model="form.moodText"
+            class="mood-input"
+            clearable
+            placeholder="也可以自己描述此刻心情"
+          />
         </div>
 
         <div class="tag-area">
@@ -107,6 +113,7 @@
             type="date"
             value-format="YYYY-MM-DD"
             placeholder="选择日期"
+            :disabled-date="disableOpenDate"
             style="width: 100%"
           />
           <div class="quick-dates">
@@ -192,6 +199,7 @@
           </div>
           <h4>{{ capsule.title }}</h4>
           <p>{{ capsule.status === 'sealed' ? '信件已封存，开启前保持沉默。' : capsule.excerpt }}</p>
+          <div v-if="capsule.mood" class="capsule-mood">{{ capsule.mood }}</div>
           <div class="card-meta">
             <span>
               <el-icon><Calendar /></el-icon>
@@ -211,9 +219,9 @@ import { ElMessage } from 'element-plus'
 
 const moodOptions = ['期待', '平静', '勇敢', '迷茫', '快乐']
 const datePresets = [
+  { label: '明天', days: 1 },
   { label: '一个月后', days: 30 },
-  { label: '一年后', days: 365 },
-  { label: '生日那天', days: 180 }
+  { label: '一年后', days: 365 }
 ]
 const filters = [
   { label: '全部', value: 'all' },
@@ -227,17 +235,45 @@ const statusMeta = {
   draft: { label: '草稿', icon: 'EditPen' }
 }
 
+const formatLocalDate = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 const getFutureDate = (days) => {
   const date = new Date()
   date.setDate(date.getDate() + days)
-  return date.toISOString().slice(0, 10)
+  return formatLocalDate(date)
+}
+
+const getDateStart = (date) => {
+  const result = new Date(date)
+  result.setHours(0, 0, 0, 0)
+  return result
+}
+
+const getTomorrowStart = () => {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  return getDateStart(tomorrow)
+}
+
+const disableOpenDate = (date) => {
+  return getDateStart(date) < getTomorrowStart()
+}
+
+const isBeforeTomorrow = (dateStr) => {
+  return getDateStart(dateStr) < getTomorrowStart()
 }
 
 const form = reactive({
   recipient: '未来的我',
   title: '',
   content: '',
-  mood: '期待',
+  moods: ['期待'],
+  moodText: '',
   tags: ['成长', '给自己'],
   openAt: getFutureDate(365),
   visibility: 'private',
@@ -283,12 +319,23 @@ const filteredCapsules = computed(() => {
   if (activeFilter.value === 'all') return capsules.value
   return capsules.value.filter(item => item.status === activeFilter.value)
 })
+const moodSummary = computed(() => {
+  return [...form.moods, form.moodText.trim()].filter(Boolean).join(' · ')
+})
 const openHint = computed(() => {
   return form.openAt ? `将在 ${form.openAt} 开启` : '选择一个未来日期'
 })
 
 const applyPreset = (days) => {
   form.openAt = getFutureDate(days)
+}
+
+const toggleMood = (mood) => {
+  if (form.moods.includes(mood)) {
+    form.moods = form.moods.filter(item => item !== mood)
+    return
+  }
+  form.moods.push(mood)
 }
 
 const daysLeft = (dateStr) => {
@@ -332,11 +379,17 @@ const sealCapsule = () => {
     ElMessage.warning('请选择开启日期')
     return
   }
+  if (isBeforeTomorrow(form.openAt)) {
+    ElMessage.warning('开启日期请从明天开始选择')
+    form.openAt = getFutureDate(1)
+    return
+  }
 
   capsules.value.unshift({
     id: Date.now(),
     title: form.title,
     excerpt: form.content.slice(0, 36),
+    mood: moodSummary.value,
     openAt: form.openAt,
     status: 'sealed',
     action: '等待中'
@@ -344,7 +397,8 @@ const sealCapsule = () => {
 
   form.title = ''
   form.content = ''
-  form.mood = '期待'
+  form.moods = ['期待']
+  form.moodText = ''
   form.tags = ['成长', '给自己']
   form.openAt = getFutureDate(365)
   ElMessage.success('时间胶囊已封存')
@@ -602,6 +656,12 @@ const sealCapsule = () => {
   font-size: 13px;
 }
 
+.mood-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .mood-chip,
 .quick-dates button,
 .segmented button,
@@ -633,6 +693,22 @@ const sealCapsule = () => {
   }
 }
 
+.mood-input {
+  width: min(100%, 260px);
+
+  :deep(.el-input__wrapper) {
+    min-height: 34px;
+    background: #fbfdfb;
+    border-radius: 999px;
+    box-shadow: 0 0 0 1px rgba(102, 194, 138, 0.14) inset;
+
+    &:hover,
+    &.is-focus {
+      box-shadow: 0 0 0 1px rgba(102, 194, 138, 0.32) inset;
+    }
+  }
+}
+
 .tag-area {
   :deep(.el-tag) {
     border-color: rgba(102, 194, 138, 0.22);
@@ -640,6 +716,20 @@ const sealCapsule = () => {
     color: var(--capsule-green-dark);
     border-radius: 999px;
   }
+}
+
+.capsule-mood {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px 10px;
+  margin-bottom: 12px;
+  overflow-wrap: anywhere;
+  color: var(--capsule-green-dark);
+  background: var(--capsule-mint);
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .tag-input {

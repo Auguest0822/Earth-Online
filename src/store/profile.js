@@ -127,6 +127,12 @@ export const useProfileStore = defineStore('profile', {
     },
     deleteTimeline(id) {
       this.timelines = this.timelines.filter(t => t.id !== id)
+    },
+    updateUserInfo(userInfo) {
+      this.userInfo = {
+        ...(this.userInfo || {}),
+        ...userInfo
+      }
     }
   }
 })

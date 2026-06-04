@@ -17,6 +17,11 @@
         </div>
       </div>
 
+      <el-button class="edit-profile-button" type="success" plain @click="openProfileEditor">
+        <el-icon><EditPen /></el-icon>
+        编辑资料
+      </el-button>
+
       <div class="level-card">
         <div class="level-top">
           <div>
@@ -100,7 +105,7 @@
             <el-icon><Setting /></el-icon>
           </div>
           <div class="setting-list">
-            <button v-for="item in settingItems" :key="item.label">
+            <button v-for="item in settingItems" :key="item.label" @click="handleSettingClick(item.action)">
               <span>
                 <el-icon><component :is="item.icon" /></el-icon>
                 {{ item.label }}
@@ -130,12 +135,65 @@
         </article>
       </aside>
     </section>
+
+    <el-dialog
+      v-model="profileEditorVisible"
+      title="编辑个人资料"
+      width="520px"
+      class="profile-editor-dialog"
+    >
+      <el-form label-position="top" @submit.prevent>
+        <div class="avatar-editor">
+          <div class="avatar-preview">
+            <img :src="profileForm.avatar || profileStore.userInfo.avatar" alt="avatar preview" />
+          </div>
+          <div class="avatar-actions">
+            <el-upload
+              :auto-upload="false"
+              :show-file-list="false"
+              accept="image/*"
+              @change="handleAvatarFile"
+            >
+              <el-button plain type="success">
+                <el-icon><Upload /></el-icon>
+                选择头像
+              </el-button>
+            </el-upload>
+            <el-input
+              v-model="profileForm.avatar"
+              clearable
+              placeholder="或粘贴头像图片链接"
+            />
+          </div>
+        </div>
+
+        <el-form-item label="用户名">
+          <el-input v-model="profileForm.nickname" maxlength="16" show-word-limit placeholder="输入用户名" />
+        </el-form-item>
+        <el-form-item label="个性签名">
+          <el-input
+            v-model="profileForm.slogan"
+            type="textarea"
+            maxlength="80"
+            show-word-limit
+            :autosize="{ minRows: 3, maxRows: 4 }"
+            placeholder="写一句现在的你"
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="profileEditorVisible = false">取消</el-button>
+        <el-button type="success" @click="saveProfile">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { useProfileStore } from '@/store/profile'
 
 const router = useRouter()
@@ -155,6 +213,12 @@ const displayInfo = computed(() => ({
 const recentTimelines = computed(() => profileStore.timelines.slice(0, 3))
 const activeAchievements = computed(() => profileStore.achievements.filter(item => item.active))
 const sealedCapsules = computed(() => profileStore.capsules.length)
+const profileEditorVisible = ref(false)
+const profileForm = reactive({
+  nickname: '',
+  avatar: '',
+  slogan: ''
+})
 
 const statCards = computed(() => [
   { label: '生存天数', value: displayInfo.value.survivalDays, icon: 'Sunrise' },
@@ -164,11 +228,55 @@ const statCards = computed(() => [
 ])
 
 const settingItems = [
-  { label: '编辑头像与昵称', icon: 'User' },
-  { label: '更新生日与签名', icon: 'EditPen' },
+  { label: '编辑头像与昵称', icon: 'User', action: 'editProfile' },
+  { label: '更新个性签名', icon: 'EditPen', action: 'editProfile' },
   { label: '隐私与展示设置', icon: 'Lock' },
   { label: '消息提醒', icon: 'Bell' }
 ]
+
+const openProfileEditor = () => {
+  profileForm.nickname = profileStore.userInfo?.nickname || ''
+  profileForm.avatar = profileStore.userInfo?.avatar || ''
+  profileForm.slogan = profileStore.userInfo?.slogan || ''
+  profileEditorVisible.value = true
+}
+
+const handleSettingClick = (action) => {
+  if (action === 'editProfile') {
+    openProfileEditor()
+  }
+}
+
+const handleAvatarFile = (uploadFile) => {
+  const file = uploadFile.raw
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    ElMessage.warning('请选择图片文件')
+    return
+  }
+
+  const reader = new FileReader()
+  reader.onload = () => {
+    profileForm.avatar = reader.result
+  }
+  reader.readAsDataURL(file)
+}
+
+const saveProfile = () => {
+  const nickname = profileForm.nickname.trim()
+  if (!nickname) {
+    ElMessage.warning('用户名不能为空')
+    return
+  }
+
+  profileStore.updateUserInfo({
+    nickname,
+    avatar: profileForm.avatar.trim() || profileStore.userInfo.avatar,
+    slogan: profileForm.slogan.trim()
+  })
+  profileEditorVisible.value = false
+  ElMessage.success('个人资料已更新')
+}
 
 const getDate = (dateStr) => new Date(dateStr)
 
@@ -196,7 +304,8 @@ const formatMonth = (dateStr) => {
 
 .profile-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) auto 320px;
+  align-items: start;
   gap: 24px;
   padding: 28px;
   overflow: hidden;
@@ -207,6 +316,11 @@ const formatMonth = (dateStr) => {
   border: 1px solid rgba(102, 194, 138, 0.16);
   border-radius: $radius-base;
   box-shadow: $shadow-base;
+}
+
+.edit-profile-button {
+  align-self: start;
+  white-space: nowrap;
 }
 
 .identity {
@@ -514,6 +628,43 @@ const formatMonth = (dateStr) => {
   }
 }
 
+.avatar-editor {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.avatar-preview {
+  width: 96px;
+  height: 96px;
+  padding: 4px;
+  background: linear-gradient(135deg, $primary-color, #d8efe0);
+  border-radius: 50%;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border: 3px solid #fff;
+    border-radius: 50%;
+  }
+}
+
+.avatar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+:deep(.profile-editor-dialog) {
+  .el-dialog__body {
+    padding-top: 8px;
+  }
+}
+
 .achievement-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -561,6 +712,15 @@ const formatMonth = (dateStr) => {
   .stats-grid,
   .achievement-list {
     grid-template-columns: 1fr;
+  }
+
+  .avatar-editor {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .avatar-actions {
+    width: 100%;
   }
 }
 </style>

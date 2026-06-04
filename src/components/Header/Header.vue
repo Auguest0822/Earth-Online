@@ -6,7 +6,7 @@
           <img :src="profileStore.userInfo?.avatar" class="avatar" />
           <div class="user-info">
             <span class="name">{{ profileStore.userInfo?.nickname }}</span>
-            <span class="level">Lv.{{ displayLevel }}</span>
+            <span class="level">Lv.{{ displayLevel }} · {{ profileStore.userInfo?.slogan || '记录你的地球轨迹' }}</span>
           </div>
           <el-icon><ArrowDown /></el-icon>
         </div>
@@ -137,21 +137,30 @@ const handleCommand = (command) => {
     .avatar {
       width: 36px;
       height: 36px;
+      object-fit: cover;
       border-radius: 50%;
     }
 
     .user-info {
       display: flex;
       flex-direction: column;
+      max-width: 180px;
+      min-width: 0;
       
       .name {
+        overflow: hidden;
         font-size: 14px;
         color: $text-main;
         font-weight: 500;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .level {
+        overflow: hidden;
         font-size: 12px;
         color: $text-secondary;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
     }
   }
