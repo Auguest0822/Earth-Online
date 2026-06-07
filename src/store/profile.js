@@ -2,6 +2,41 @@ import { defineStore } from 'pinia'
 import { getProfileData } from '../mock/index'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
+const USER_INFO_STORAGE_KEY = 'earth-online:user-info'
+
+const loadSavedUserInfo = () => {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const raw = window.localStorage.getItem(USER_INFO_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+const saveUserInfo = (userInfo) => {
+  if (typeof window === 'undefined') return
+
+  const savedUserInfo = {
+    avatar: userInfo.avatar,
+    nickname: userInfo.nickname,
+    slogan: userInfo.slogan,
+    birthDate: userInfo.birthDate,
+    level: userInfo.level
+  }
+
+  try {
+    window.localStorage.setItem(USER_INFO_STORAGE_KEY, JSON.stringify(savedUserInfo))
+  } catch {
+    const { avatar, ...fallbackUserInfo } = savedUserInfo
+    try {
+      window.localStorage.setItem(USER_INFO_STORAGE_KEY, JSON.stringify(fallbackUserInfo))
+    } catch {
+      // 本地存储失败时，仍保留当前页面内的资料更新。
+    }
+  }
+}
 
 const isLeapYear = (year) => {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
@@ -82,7 +117,7 @@ const sortTimelinesByDateDesc = (a, b) => {
 
 export const useProfileStore = defineStore('profile', {
   state: () => ({
-    userInfo: null,
+    userInfo: loadSavedUserInfo(),
     timelines: [],
     eventsData: [],
     moodTrend: [],
@@ -99,7 +134,12 @@ export const useProfileStore = defineStore('profile', {
       return new Promise(resolve => {
         setTimeout(() => {
           const data = getProfileData()
-          this.userInfo = data.userInfo
+          const savedUserInfo = loadSavedUserInfo()
+          this.userInfo = {
+            ...data.userInfo,
+            ...(savedUserInfo || {}),
+            ...(this.userInfo || {})
+          }
           this.timelines = data.timelines
           this.eventsData = data.eventsData
           this.moodTrend = data.moodTrend
@@ -133,6 +173,7 @@ export const useProfileStore = defineStore('profile', {
         ...(this.userInfo || {}),
         ...userInfo
       }
+      saveUserInfo(this.userInfo)
     }
   }
 })

@@ -5,8 +5,10 @@
         <div class="user-profile">
           <img :src="profileStore.userInfo?.avatar" class="avatar" />
           <div class="user-info">
-            <span class="name">{{ profileStore.userInfo?.nickname }}</span>
-            <span class="level">Lv.{{ displayLevel }} · {{ profileStore.userInfo?.slogan || '记录你的地球轨迹' }}</span>
+            <div class="user-line" :title="profileStore.userInfo?.nickname">
+              <span class="level">Lv.{{ displayLevel }}</span>
+              <span class="name">{{ displayName }}</span>
+            </div>
           </div>
           <el-icon><ArrowDown /></el-icon>
         </div>
@@ -46,6 +48,11 @@ const router = useRouter()
 
 const displayLevel = computed(() => {
   return profileStore.userStats?.level ?? profileStore.userInfo?.level ?? 0
+})
+
+const displayName = computed(() => {
+  const nickname = profileStore.userInfo?.nickname || '地球居民'
+  return Array.from(nickname).slice(0, 10).join('')
 })
 
 const handleCommand = (command) => {
@@ -143,22 +150,29 @@ const handleCommand = (command) => {
 
     .user-info {
       display: flex;
-      flex-direction: column;
+      align-items: center;
       max-width: 180px;
       min-width: 0;
-      
+
+      .user-line {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .level {
+        flex: 0 0 auto;
+        color: $text-secondary;
+        font-size: 12px;
+        font-weight: 500;
+      }
+
       .name {
         overflow: hidden;
         font-size: 14px;
         color: $text-main;
         font-weight: 500;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .level {
-        overflow: hidden;
-        font-size: 12px;
-        color: $text-secondary;
         text-overflow: ellipsis;
         white-space: nowrap;
       }

@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "api": "node server/news-server.js",
+    "dev:full": "node server/dev.js",
     "build": "vite build",
     "preview": "vite preview"
   },

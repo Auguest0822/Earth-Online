@@ -159,16 +159,11 @@
                 选择头像
               </el-button>
             </el-upload>
-            <el-input
-              v-model="profileForm.avatar"
-              clearable
-              placeholder="或粘贴头像图片链接"
-            />
           </div>
         </div>
 
         <el-form-item label="用户名">
-          <el-input v-model="profileForm.nickname" maxlength="16" show-word-limit placeholder="输入用户名" />
+          <el-input v-model="profileForm.nickname" maxlength="10" show-word-limit placeholder="输入用户名" />
         </el-form-item>
         <el-form-item label="个性签名">
           <el-input
@@ -200,7 +195,7 @@ const router = useRouter()
 const profileStore = useProfileStore()
 
 onMounted(() => {
-  if (!profileStore.userInfo) {
+  if (!profileStore.userInfo || !profileStore.timelines.length) {
     profileStore.fetchProfileData()
   }
 })
@@ -263,7 +258,7 @@ const handleAvatarFile = (uploadFile) => {
 }
 
 const saveProfile = () => {
-  const nickname = profileForm.nickname.trim()
+  const nickname = Array.from(profileForm.nickname.trim()).slice(0, 10).join('')
   if (!nickname) {
     ElMessage.warning('用户名不能为空')
     return
