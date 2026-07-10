@@ -406,7 +406,7 @@ const sealCapsule = () => {
 </script>
 
 <style lang="scss" scoped>
-@import '@/assets/styles/variables.scss';
+@import '@/styles/variables.scss';
 
 .capsule-view {
   --capsule-green: #66c28a;

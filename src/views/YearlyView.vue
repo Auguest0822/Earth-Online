@@ -42,7 +42,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useProfileStore } from '@/store/profile'
+import { useProfileStore } from '@/stores/profile'
 import DataAnalysis from '@/components/Profile/DataAnalysis.vue'
 import WordCloudCard from '@/components/Profile/WordCloudCard.vue'
 
@@ -81,7 +81,7 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-@import '@/assets/styles/variables.scss';
+@import '@/styles/variables.scss';
 
 .yearly-view {
   display: flex;

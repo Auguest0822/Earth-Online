@@ -90,7 +90,7 @@ const formatTime = (value) => {
 </script>
 
 <style lang="scss" scoped>
-@import '@/assets/styles/variables.scss';
+@import '@/styles/variables.scss';
 
 .module-card {
   background: rgba(255, 255, 255, 0.94);

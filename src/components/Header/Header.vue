@@ -40,7 +40,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useProfileStore } from '@/store/profile'
+import { useProfileStore } from '@/stores/profile'
 import { useRouter } from 'vue-router'
 
 const profileStore = useProfileStore()
@@ -64,7 +64,7 @@ const handleCommand = (command) => {
 </script>
 
 <style lang="scss" scoped>
-@import '@/assets/styles/variables.scss';
+@import '@/styles/variables.scss';
 
 .header {
   height: $header-height;

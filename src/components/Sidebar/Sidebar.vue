@@ -47,7 +47,7 @@ const navigate = (path) => {
 </script>
 
 <style lang="scss" scoped>
-@import '@/assets/styles/variables.scss';
+@import '@/styles/variables.scss';
 
 .sidebar {
   width: $sidebar-width;

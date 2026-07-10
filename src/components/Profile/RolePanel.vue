@@ -43,7 +43,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useProfileStore } from '@/store/profile'
+import { useProfileStore } from '@/stores/profile'
 
 const props = defineProps({
   userInfo: Object
@@ -61,7 +61,7 @@ const displayInfo = computed(() => {
 </script>
 
 <style lang="scss" scoped>
-@import '@/assets/styles/variables.scss';
+@import '@/styles/variables.scss';
 
 .role-panel {
   background: url('https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?auto=format&fit=crop&q=80') no-repeat center/cover;

@@ -1,0 +1,3 @@
+# 工具函数（Utils）
+# 纯函数工具放这里，不依赖 Vue
+# 示例：formatDate.js, validators.js, constants.js

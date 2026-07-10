@@ -26,7 +26,7 @@ const props = defineProps({
 </script>
 
 <style lang="scss" scoped>
-@import '@/assets/styles/variables.scss';
+@import '@/styles/variables.scss';
 
 .module-card {
   background: $card-bg;

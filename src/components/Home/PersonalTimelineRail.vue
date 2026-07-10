@@ -56,7 +56,7 @@ const formatMonth = (value) => `${toDate(value).getFullYear()}.${String(toDate(v
 </script>
 
 <style lang="scss" scoped>
-@import '@/assets/styles/variables.scss';
+@import '@/styles/variables.scss';
 
 .module-card {
   background: rgba(255, 255, 255, 0.94);

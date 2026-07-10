@@ -189,7 +189,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { useProfileStore } from '@/store/profile'
+import { useProfileStore } from '@/stores/profile'
 
 const router = useRouter()
 const profileStore = useProfileStore()
@@ -288,7 +288,7 @@ const formatMonth = (dateStr) => {
 </script>
 
 <style lang="scss" scoped>
-@import '@/assets/styles/variables.scss';
+@import '@/styles/variables.scss';
 
 .personal-view {
   display: flex;

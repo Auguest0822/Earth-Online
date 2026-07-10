@@ -67,10 +67,10 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { useProfileStore } from '@/store/profile'
+import { useProfileStore } from '@/stores/profile'
 import EarthEventFeed from '@/components/Home/EarthEventFeed.vue'
 import EarthHeatPanel from '@/components/Home/EarthHeatPanel.vue'
-import { fetchEarthNews } from '@/services/newsService'
+import { fetchEarthNews } from '@/api/newsService'
 
 const profileStore = useProfileStore()
 const selectedCategory = ref('all')
@@ -140,7 +140,7 @@ watch(selectedCategory, () => {
 </script>
 
 <style lang="scss" scoped>
-@import '@/assets/styles/variables.scss';
+@import '@/styles/variables.scss';
 
 .profile-view {
   display: flex;

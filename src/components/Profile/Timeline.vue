@@ -161,7 +161,7 @@
 
 <script setup>
 import { ref, reactive, computed } from 'vue'
-import { useProfileStore } from '@/store/profile'
+import { useProfileStore } from '@/stores/profile'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const props = defineProps({
@@ -310,7 +310,7 @@ const removeKeyword = (index) => {
 </script>
 
 <style lang="scss" scoped>
-@import '@/assets/styles/variables.scss';
+@import '@/styles/variables.scss';
 
 .module-card {
   background: $card-bg;
