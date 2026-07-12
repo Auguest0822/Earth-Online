@@ -21,7 +21,7 @@
       </el-dropdown>
 
       <div class="search-box">
-        <el-input placeholder="搜索关键词、事件、心情..." prefix-icon="Search" />
+        <el-input placeholder="搜索记录、心情、标签或歌曲..." prefix-icon="Search" />
       </div>
       
       <div class="actions">

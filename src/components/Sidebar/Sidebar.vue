@@ -32,10 +32,11 @@ const route = useRoute()
 
 const menuItems = [
   { path: '/', label: '首页', icon: 'House' },
-  { path: '/timeline', label: '时间轴', icon: 'Clock' },
+  { path: '/earth', label: '地球动态', icon: 'Compass' },
+  { path: '/timeline', label: '时间线', icon: 'Clock' },
   { path: '/yearly', label: '年度记录', icon: 'Calendar' },
-  { path: '/capsule', label: '时间胶囊', icon: 'Collection' },
-  { path: '/achievements', label: '成就徽章', icon: 'Trophy' },
+  { path: '/capsule', label: '写给未来', icon: 'MessageBox' },
+  { path: '/friends', label: '朋友', icon: 'UserFilled' },
   { path: '/profile', label: '我的地球档案', icon: 'User' }
 ]
 

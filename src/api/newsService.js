@@ -73,14 +73,6 @@ const fallbackNews = [
   }
 ]
 
-const fallbackTrends = [
-  { name: '气候韧性', value: 96, type: 'climate' },
-  { name: '空间探索', value: 88, type: 'science' },
-  { name: '公共健康', value: 82, type: 'society' },
-  { name: '能源转型', value: 78, type: 'economy' },
-  { name: '城市生活', value: 72, type: 'society' }
-]
-
 const readJson = async (url) => {
   const response = await fetch(url)
   if (!response.ok) {
@@ -96,32 +88,43 @@ const loadFromConfiguredBackend = async (category) => {
   return readJson(`${backendUrl.replace(/\/$/, '')}/news?${params.toString()}`)
 }
 
-const buildTrends = (items) => {
+const buildStats = (items, field, fallbackName) => {
   const counts = new Map()
-
   items.forEach((item) => {
-    const words = `${item.title} ${item.summary}`
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, ' ')
-      .split(/\s+/)
-      .filter((word) => word.length > 5)
-
-    words.slice(0, 10).forEach((word) => {
-      counts.set(word, (counts.get(word) || 0) + 1)
-    })
+    const name = item[field]?.trim() || fallbackName
+    counts.set(name, (counts.get(name) || 0) + 1)
   })
 
-  const generated = Array.from(counts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([name], index) => ({
-      name,
-      value: Math.max(58, 96 - index * 7),
-      type: 'global'
-    }))
-
-  return generated.length ? generated : fallbackTrends
+  const stats = Array.from(counts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6)
+  const maxCount = Math.max(...stats.map((item) => item.count), 1)
+  return stats.map((item) => ({
+    ...item,
+    percentage: Math.round((item.count / maxCount) * 100)
+  }))
 }
+
+const buildFallbackPayload = () => ({
+  events: fallbackNews,
+  categoryStats: buildStats(fallbackNews, 'category', '全球'),
+  regionStats: buildStats(fallbackNews, 'region', '未知地区'),
+  trends: buildStats(fallbackNews, 'category', '全球').map((item) => ({
+    name: item.name,
+    value: item.percentage
+  })),
+  sourceMode: 'fallback',
+  meta: {
+    sourceMode: 'fallback',
+    sources: ['本地演示数据'],
+    updatedAt: new Date().toISOString(),
+    cached: false,
+    cacheMinutes: 10,
+    dataStatus: 'fallback',
+    message: '新闻接口暂时不可用，当前显示本地演示数据。'
+  }
+})
 
 export const fetchEarthNews = async ({ category = 'all' } = {}) => {
   try {
@@ -129,17 +132,30 @@ export const fetchEarthNews = async ({ category = 'all' } = {}) => {
     if (backendPayload?.events?.length) {
       return {
         events: backendPayload.events,
-        trends: backendPayload.trends?.length ? backendPayload.trends : buildTrends(backendPayload.events),
-        sourceMode: backendPayload.sourceMode || 'backend'
+        categoryStats: backendPayload.categoryStats?.length
+          ? backendPayload.categoryStats
+          : buildStats(backendPayload.events, 'category', '全球'),
+        regionStats: backendPayload.regionStats?.length
+          ? backendPayload.regionStats
+          : buildStats(backendPayload.events, 'region', '未知地区'),
+        trends: backendPayload.trends || (backendPayload.categoryStats || []).map((item) => ({
+          name: item.name,
+          value: item.percentage
+        })),
+        sourceMode: backendPayload.meta?.sourceMode || backendPayload.sourceMode || 'backend',
+        meta: backendPayload.meta || {
+          sourceMode: backendPayload.sourceMode || 'backend',
+          sources: ['新闻接口'],
+          updatedAt: new Date().toISOString(),
+          cached: false,
+          cacheMinutes: 10,
+          dataStatus: 'normal'
+        }
       }
     }
   } catch (error) {
     console.warn('[Earth Online] backend news fallback:', error)
   }
 
-  return {
-    events: fallbackNews,
-    trends: buildTrends(fallbackNews),
-    sourceMode: 'fallback'
-  }
+  return buildFallbackPayload()
 }

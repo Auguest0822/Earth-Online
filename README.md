@@ -53,7 +53,7 @@ Earth Online 希望把分散的地球新闻、个人时间线、年度回顾和�
 - MySQL 或 PostgreSQL：部署阶段数据库
 - JWT：用户身份认证
 - 大模型 API：年度总结、情绪分析与智能推荐
-- Flutter：Android / iOS 移动端
+- Flutter：Android移动端
 
 ## 快速开始
 

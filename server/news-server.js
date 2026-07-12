@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const PORT = Number(process.env.NEWS_SERVER_PORT || 8787)
-const CACHE_TTL = 5 * 60 * 1000
+const CACHE_TTL = 10 * 60 * 1000
 const GDELT_DOC_API = 'https://api.gdeltproject.org/api/v2/doc/doc'
 const NEWS_API_TOP_HEADLINES = 'https://newsapi.org/v2/top-headlines'
 
@@ -263,29 +263,68 @@ const buildNewsApiUrl = (category) => {
   return `${NEWS_API_TOP_HEADLINES}?${params.toString()}`
 }
 
-const buildTrends = (items) => {
+const buildCategoryStats = (items) => {
+  const labels = ['气候', '科技', '社会', '经济', '全球']
+  const counts = new Map(labels.map((label) => [label, 0]))
+
+  items.forEach((item) => {
+    const category = counts.has(item.category) ? item.category : '全球'
+    counts.set(category, counts.get(category) + 1)
+  })
+
+  const stats = Array.from(counts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .filter((item) => item.count > 0)
+    .sort((a, b) => b.count - a.count)
+
+  const maxCount = Math.max(...stats.map((item) => item.count), 1)
+  return stats.map((item) => ({
+    ...item,
+    percentage: Math.round((item.count / maxCount) * 100)
+  }))
+}
+
+const buildRegionStats = (items) => {
   const counts = new Map()
 
   items.forEach((item) => {
-    const words = `${item.title} ${item.summary}`
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, ' ')
-      .split(/\s+/)
-      .filter((word) => word.length > 5)
-
-    words.slice(0, 10).forEach((word) => {
-      counts.set(word, (counts.get(word) || 0) + 1)
-    })
+    const region = item.region?.trim() || '未知地区'
+    counts.set(region, (counts.get(region) || 0) + 1)
   })
 
-  return Array.from(counts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([name], index) => ({
-      name,
-      value: Math.max(58, 96 - index * 7),
-      type: 'global'
-    }))
+  const stats = Array.from(counts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6)
+
+  const maxCount = Math.max(...stats.map((item) => item.count), 1)
+  return stats.map((item) => ({
+    ...item,
+    percentage: Math.round((item.count / maxCount) * 100)
+  }))
+}
+
+const buildPayload = (events, sourceMode, extra = {}) => {
+  const categoryStats = buildCategoryStats(events)
+  return {
+    events,
+    categoryStats,
+    regionStats: buildRegionStats(events),
+    // 兼容旧首页，后续首页重构完成后可移除。
+    trends: categoryStats.map((item) => ({ name: item.name, value: item.percentage })),
+    sourceMode,
+    meta: {
+    sourceMode,
+    sources: sourceMode === 'gdelt-newsapi'
+      ? ['GDELT', 'NewsAPI']
+      : sourceMode === 'gdelt' ? ['GDELT'] : ['本地演示数据'],
+    updatedAt: new Date().toISOString(),
+    cached: false,
+    cacheMinutes: CACHE_TTL / 60000,
+    dataStatus: sourceMode === 'fallback' ? 'fallback' : 'normal',
+    ...extra
+    }
+  }
 }
 
 const fetchNews = async (category) => {
@@ -295,7 +334,10 @@ const fetchNews = async (category) => {
   if (cached && Date.now() - cached.createdAt < CACHE_TTL) {
     return {
       ...cached.payload,
-      cached: true
+      meta: {
+        ...cached.payload.meta,
+        cached: true
+      }
     }
   }
 
@@ -313,18 +355,8 @@ const fetchNews = async (category) => {
     .sort((a, b) => b.importance - a.importance)
 
   const payload = events.length
-    ? {
-        events,
-        trends: buildTrends(events),
-        sourceMode: newsApiUrl ? 'gdelt-newsapi' : 'gdelt',
-        updatedAt: new Date().toISOString()
-      }
-    : {
-        events: fallbackNews,
-        trends: buildTrends(fallbackNews),
-        sourceMode: 'fallback',
-        updatedAt: new Date().toISOString()
-      }
+    ? buildPayload(events, newsApiUrl ? 'gdelt-newsapi' : 'gdelt')
+    : buildPayload(fallbackNews, 'fallback')
 
   cache.set(cacheKey, {
     createdAt: Date.now(),
@@ -359,11 +391,9 @@ const server = http.createServer(async (req, res) => {
     } catch (error) {
       console.error('[news-server] request failed:', error)
       sendJson(res, 200, {
-        events: fallbackNews,
-        trends: buildTrends(fallbackNews),
-        sourceMode: 'fallback',
-        updatedAt: new Date().toISOString(),
-        error: '新闻源暂时不可用，已返回演示数据。'
+        ...buildPayload(fallbackNews, 'fallback', {
+          message: '新闻源暂时不可用，已返回演示数据。'
+        })
       })
     }
     return

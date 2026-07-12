@@ -15,6 +15,11 @@ const router = createRouter({
       component: () => import('../views/ProfileView.vue')
     },
     {
+      path: '/earth',
+      name: 'earth',
+      component: () => import('../views/EarthView.vue')
+    },
+    {
       path: '/profile',
       name: 'profile',
       component: () => import('../views/PersonalView.vue')
@@ -33,6 +38,11 @@ const router = createRouter({
       path: '/capsule',
       name: 'capsule',
       component: () => import('../views/CapsuleView.vue')
+    },
+    {
+      path: '/friends',
+      name: 'friends',
+      component: () => import('../views/FriendsView.vue')
     },
     {
       path: '/achievements',
