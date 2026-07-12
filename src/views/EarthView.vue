@@ -7,6 +7,11 @@
         <span>看看此刻，这颗星球正在发生什么</span>
       </div>
       <div class="sync-summary">
+        <el-select v-model="dataSource" class="source-select" aria-label="选择数据源" @change="changeDataSource">
+          <el-option label="Mock 演示" value="mock" />
+          <el-option label="后端接口" value="api" />
+          <el-option label="自动切换" value="auto" />
+        </el-select>
         <span>数据来源 {{ sourceLabel }}</span>
         <span>{{ updatedText }}</span>
         <el-button :loading="loading" plain type="success" @click="loadNews">
@@ -132,7 +137,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { fetchEarthNews } from '@/api/newsService'
+import { fetchEarthNews, getNewsDataSource, setNewsDataSource } from '@/api/newsService'
 
 const categories = [
   { label: '全部', value: 'all' },
@@ -143,6 +148,7 @@ const categories = [
 ]
 
 const selectedCategory = ref('all')
+const dataSource = ref(getNewsDataSource())
 const loading = ref(false)
 const news = ref([])
 const categoryStats = ref([])
@@ -154,8 +160,10 @@ let refreshTimer
 const featured = computed(() => news.value[0])
 const visibleNews = computed(() => news.value.slice(1, visibleCount.value + 1))
 const sourceLabel = computed(() => meta.value.sources?.join(' + ') || '本地演示数据')
-const statusText = computed(() => meta.value.dataStatus === 'fallback' ? '演示模式' : '数据正常')
-const statusType = computed(() => meta.value.dataStatus === 'fallback' ? 'warning' : 'success')
+const statusText = computed(() => meta.value.dataStatus === 'error'
+  ? '接口异常'
+  : meta.value.dataStatus === 'fallback' ? '演示模式' : '数据正常')
+const statusType = computed(() => meta.value.dataStatus === 'normal' ? 'success' : 'warning')
 const dataNote = computed(() => meta.value.message || '分类与地区数据均根据本次同步到的新闻列表统计，不代表全网热度。')
 
 const updatedDate = computed(() => {
@@ -189,7 +197,7 @@ const openArticle = (item) => {
 const loadNews = async () => {
   loading.value = true
   try {
-    const data = await fetchEarthNews({ category: selectedCategory.value })
+    const data = await fetchEarthNews({ category: selectedCategory.value, source: dataSource.value })
     news.value = data.events || []
     categoryStats.value = data.categoryStats || []
     regionStats.value = data.regionStats || []
@@ -198,6 +206,11 @@ const loadNews = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const changeDataSource = () => {
+  setNewsDataSource(dataSource.value)
+  loadNews()
 }
 
 watch(selectedCategory, loadNews)
@@ -218,6 +231,7 @@ onBeforeUnmount(() => window.clearInterval(refreshTimer))
 .page-heading h2 { margin: 0 0 6px; color: $text-main; font-size: 28px; }
 .page-heading > div > span { color: $text-regular; font-size: 14px; }
 .sync-summary { display: flex; align-items: center; gap: 14px; color: $text-secondary; font-size: 12px; }
+.source-select { width: 118px; }
 .featured-card { display: grid; grid-template-columns: 38% minmax(0,1fr); gap: 24px; padding: 14px; }
 .featured-card > img { width: 100%; height: 210px; object-fit: cover; border-radius: 12px; }
 .featured-content { padding: 10px 12px 10px 0; }

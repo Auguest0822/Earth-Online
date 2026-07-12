@@ -2,7 +2,7 @@
   <div class="capsule-view">
     <section class="page-head">
       <div>
-        <h2>时间胶囊</h2>
+        <h2>写给未来</h2>
         <p>给未来的自己写封信，把此刻认真封存起来。</p>
       </div>
       <div class="summary">
@@ -101,7 +101,7 @@
         <div class="panel-title compact">
           <div>
             <span class="eyebrow">Settings</span>
-            <h3>胶囊设置</h3>
+            <h3>信件设置</h3>
           </div>
           <el-icon><Lock /></el-icon>
         </div>
@@ -159,7 +159,7 @@
 
         <el-button class="seal-button" type="success" size="large" @click="sealCapsule">
           <el-icon><Finished /></el-icon>
-          封存胶囊
+          封存信件
         </el-button>
       </aside>
     </section>
@@ -167,7 +167,7 @@
     <section class="capsule-list-section">
       <div class="list-head">
         <div>
-          <h3>我的胶囊</h3>
+          <h3>我的未来信件</h3>
           <p>每一封信都在自己的时间里慢慢抵达。</p>
         </div>
         <div class="filters">
@@ -214,8 +214,10 @@
 </template>
 
 <script setup>
-import { computed, nextTick, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { getAppDataSource } from '@/api/config'
+import { createFutureLetter, listFutureLetters } from '@/api/modules/futureLetters'
 
 const moodOptions = ['期待', '平静', '勇敢', '迷茫', '快乐']
 const datePresets = [
@@ -366,7 +368,7 @@ const removeTag = (tag) => {
   form.tags = form.tags.filter(item => item !== tag)
 }
 
-const sealCapsule = () => {
+const sealCapsule = async () => {
   if (!form.title.trim()) {
     ElMessage.warning('请先写下信件标题')
     return
@@ -385,7 +387,18 @@ const sealCapsule = () => {
     return
   }
 
-  capsules.value.unshift({
+  const payload = {
+    recipient: form.recipient,
+    title: form.title,
+    content: form.content,
+    moods: [...form.moods, form.moodText.trim()].filter(Boolean),
+    tags: [...form.tags],
+    openAt: form.openAt,
+    visibility: form.visibility,
+    allowEditBeforeOpen: form.allowEditBeforeOpen,
+    status: 'sealed'
+  }
+  let savedLetter = {
     id: Date.now(),
     title: form.title,
     excerpt: form.content.slice(0, 36),
@@ -393,7 +406,16 @@ const sealCapsule = () => {
     openAt: form.openAt,
     status: 'sealed',
     action: '等待中'
-  })
+  }
+  if (getAppDataSource() !== 'mock') {
+    try {
+      savedLetter = await createFutureLetter(payload)
+    } catch (error) {
+      ElMessage.error(error.message || '信件封存失败')
+      return
+    }
+  }
+  capsules.value.unshift(savedLetter)
 
   form.title = ''
   form.content = ''
@@ -401,8 +423,18 @@ const sealCapsule = () => {
   form.moodText = ''
   form.tags = ['成长', '给自己']
   form.openAt = getFutureDate(365)
-  ElMessage.success('时间胶囊已封存')
+  ElMessage.success('写给未来的信已封存')
 }
+
+onMounted(async () => {
+  if (getAppDataSource() === 'mock') return
+  try {
+    const data = await listFutureLetters({ status: activeFilter.value })
+    capsules.value = data.items || data
+  } catch (error) {
+    ElMessage.error(error.message || '未来信件加载失败')
+  }
+})
 </script>
 
 <style lang="scss" scoped>

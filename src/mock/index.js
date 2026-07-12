@@ -85,15 +85,8 @@ export const getProfileData = () => {
       { name: '温暖', value: 40 },
       { name: '快乐', value: 35 }
     ],
-    achievements: [
-      { icon: 'Trophy', name: '初来乍到', active: true },
-      { icon: 'Medal', name: '年度记录者', active: true },
-      { icon: 'Star', name: '时间旅人', active: true },
-      { icon: 'Opportunity', name: '生活探索家', active: false },
-      { icon: 'Avatar', name: '坚持记录者', active: false }
-    ],
-    capsules: [
-      { title: '给未来的自己', desc: '留下一份礼物' }
+    futureLetters: [
+      { id: 1, title: '给未来的自己', openAt: '2027-07-12', status: 'sealed' }
     ]
   }
 }

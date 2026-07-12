@@ -115,24 +115,6 @@
           </div>
         </article>
 
-        <article class="panel achievement-card">
-          <div class="panel-head">
-            <div>
-              <h3>成就概览</h3>
-              <p>{{ activeAchievements.length }} 个已点亮</p>
-            </div>
-          </div>
-          <div class="achievement-list">
-            <div
-              v-for="item in profileStore.achievements"
-              :key="item.name"
-              :class="{ active: item.active }"
-            >
-              <el-icon><component :is="item.icon" /></el-icon>
-              <span>{{ item.name }}</span>
-            </div>
-          </div>
-        </article>
       </aside>
     </section>
 
@@ -206,8 +188,7 @@ const displayInfo = computed(() => ({
 }))
 
 const recentTimelines = computed(() => profileStore.timelines.slice(0, 3))
-const activeAchievements = computed(() => profileStore.achievements.filter(item => item.active))
-const sealedCapsules = computed(() => profileStore.capsules.length)
+const futureLetterCount = computed(() => profileStore.futureLetters.length)
 const profileEditorVisible = ref(false)
 const profileForm = reactive({
   nickname: '',
@@ -218,8 +199,8 @@ const profileForm = reactive({
 const statCards = computed(() => [
   { label: '生存天数', value: displayInfo.value.survivalDays, icon: 'Sunrise' },
   { label: '记录总数', value: profileStore.timelines.length, icon: 'Notebook' },
-  { label: '时间胶囊', value: sealedCapsules.value, icon: 'Collection' },
-  { label: '成就数量', value: activeAchievements.value.length, icon: 'Trophy' }
+  { label: '未来信件', value: futureLetterCount.value, icon: 'MessageBox' },
+  { label: '关键词数', value: profileStore.keywords.length, icon: 'PriceTag' }
 ])
 
 const settingItems = [

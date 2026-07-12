@@ -1,5 +1,9 @@
 import { defineStore } from 'pinia'
 import { getProfileData } from '../mock/index'
+import { getAppDataSource } from '../api/config'
+import { getProfile, updateProfile } from '../api/modules/profile'
+import { createRecord, deleteRecord, listRecords, updateRecord } from '../api/modules/records'
+import { getDashboard } from '../api/modules/stats'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 const USER_INFO_STORAGE_KEY = 'earth-online:user-info'
@@ -122,15 +126,32 @@ export const useProfileStore = defineStore('profile', {
     eventsData: [],
     moodTrend: [],
     keywords: [],
-    achievements: [],
-    capsules: []
+    futureLetters: []
   }),
   getters: {
     userStats: (state) => buildSurvivalStats(state.userInfo)
   },
   actions: {
     async fetchProfileData() {
-      // 模拟API请求
+      const source = getAppDataSource()
+      if (source !== 'mock') {
+        try {
+          const [profile, records, dashboard] = await Promise.all([
+            getProfile(), listRecords({ page: 1, pageSize: 100 }), getDashboard()
+          ])
+          this.userInfo = profile
+          this.timelines = (records.items || records).sort(sortTimelinesByDateDesc)
+          this.eventsData = dashboard.eventsData || []
+          this.moodTrend = dashboard.moodTrend || []
+          this.keywords = dashboard.keywords || []
+          this.futureLetters = dashboard.futureLetters || []
+          return { userInfo: profile, timelines: this.timelines, ...dashboard }
+        } catch (error) {
+          if (source === 'api') throw error
+          console.warn('[Earth Online] business API unavailable, using mock data:', error)
+        }
+      }
+
       return new Promise(resolve => {
         setTimeout(() => {
           const data = getProfileData()
@@ -144,36 +165,50 @@ export const useProfileStore = defineStore('profile', {
           this.eventsData = data.eventsData
           this.moodTrend = data.moodTrend
           this.keywords = data.keywords
-          this.achievements = data.achievements
-          this.capsules = data.capsules
+          this.futureLetters = data.futureLetters
           resolve(data)
         }, 500)
       })
     },
-    addTimeline(timeline) {
+    async addTimeline(timeline) {
+      const source = getAppDataSource()
       const payload = {
         id: timeline.id || `t-${Date.now()}`,
         ...timeline
       }
       this.timelines.push(payload)
       this.timelines.sort(sortTimelinesByDateDesc)
+      if (source !== 'mock') {
+        try {
+          const saved = await createRecord(timeline)
+          this.timelines = this.timelines.map(item => item.id === payload.id ? saved : item)
+        } catch (error) {
+          if (source === 'api') this.timelines = this.timelines.filter(item => item.id !== payload.id)
+          if (source === 'api') throw error
+          console.warn('[Earth Online] record create fallback:', error)
+        }
+      }
+      return payload
     },
-    updateTimeline(timeline) {
+    async updateTimeline(timeline) {
       const index = this.timelines.findIndex(t => t.id === timeline.id)
       if (index !== -1) {
         this.timelines[index] = { ...this.timelines[index], ...timeline }
         this.timelines.sort(sortTimelinesByDateDesc)
       }
+      if (getAppDataSource() !== 'mock') await updateRecord(timeline.id, timeline)
     },
-    deleteTimeline(id) {
+    async deleteTimeline(id) {
       this.timelines = this.timelines.filter(t => t.id !== id)
+      if (getAppDataSource() !== 'mock') await deleteRecord(id)
     },
-    updateUserInfo(userInfo) {
+    async updateUserInfo(userInfo) {
       this.userInfo = {
         ...(this.userInfo || {}),
         ...userInfo
       }
       saveUserInfo(this.userInfo)
+      if (getAppDataSource() !== 'mock') await updateProfile(userInfo)
     }
   }
 })

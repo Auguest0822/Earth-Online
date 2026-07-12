@@ -43,11 +43,6 @@ const router = createRouter({
       path: '/friends',
       name: 'friends',
       component: () => import('../views/FriendsView.vue')
-    },
-    {
-      path: '/achievements',
-      name: 'achievements',
-      component: () => import('../views/AchievementView.vue')
     }
   ]
 })

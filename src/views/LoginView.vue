@@ -83,6 +83,8 @@
 import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
+import { getAppDataSource } from '@/api/config'
+import { login, register } from '@/api/modules/auth'
 
 const router = useRouter()
 const activeTab = ref('login')
@@ -100,18 +102,26 @@ const registerForm = reactive({
   confirmPassword: ''
 })
 
-const handleLogin = () => {
+const handleLogin = async () => {
   if (!loginForm.username || !loginForm.password) {
     ElMessage.warning('请输入用户名和密码')
     return
   }
-  ElMessage.success('登录成功')
+  if (getAppDataSource() !== 'mock') {
+    try {
+      await login({ username: loginForm.username, password: loginForm.password })
+    } catch (error) {
+      ElMessage.error(error.message || '登录失败')
+      return
+    }
+  }
+  ElMessage.success(getAppDataSource() === 'mock' ? '演示模式登录成功' : '登录成功')
   setTimeout(() => {
     router.push('/')
   }, 800)
 }
 
-const handleRegister = () => {
+const handleRegister = async () => {
   if (!registerForm.username || !registerForm.email || !registerForm.password) {
     ElMessage.warning('请填写完整信息')
     return
@@ -120,7 +130,20 @@ const handleRegister = () => {
     ElMessage.warning('两次密码输入不一致')
     return
   }
-  ElMessage.success('注册成功，已自动登录')
+  if (getAppDataSource() !== 'mock') {
+    try {
+      await register({
+        username: registerForm.username,
+        email: registerForm.email,
+        password: registerForm.password
+      })
+      await login({ username: registerForm.username, password: registerForm.password })
+    } catch (error) {
+      ElMessage.error(error.message || '注册失败')
+      return
+    }
+  }
+  ElMessage.success(getAppDataSource() === 'mock' ? '演示模式注册成功' : '注册成功，已自动登录')
   setTimeout(() => {
     router.push('/')
   }, 800)

@@ -126,7 +126,25 @@ const buildFallbackPayload = () => ({
   }
 })
 
-export const fetchEarthNews = async ({ category = 'all' } = {}) => {
+const normalizeDataSource = (value) => ['mock', 'api', 'auto'].includes(value) ? value : 'auto'
+
+export const getNewsDataSource = () => normalizeDataSource(
+  localStorage.getItem('earth-online-news-source') || import.meta.env.VITE_NEWS_DATA_SOURCE
+)
+
+export const setNewsDataSource = (source) => {
+  localStorage.setItem('earth-online-news-source', normalizeDataSource(source))
+}
+
+export const fetchEarthNews = async ({ category = 'all', source = getNewsDataSource() } = {}) => {
+  const dataSource = normalizeDataSource(source)
+
+  if (dataSource === 'mock') {
+    const payload = buildFallbackPayload()
+    payload.meta.message = '当前手动选择 Mock 演示数据，不依赖网络和后端服务。'
+    return payload
+  }
+
   try {
     const backendPayload = await loadFromConfiguredBackend(category)
     if (backendPayload?.events?.length) {
@@ -155,6 +173,16 @@ export const fetchEarthNews = async ({ category = 'all' } = {}) => {
     }
   } catch (error) {
     console.warn('[Earth Online] backend news fallback:', error)
+    if (dataSource === 'api') {
+      return {
+        ...buildFallbackPayload(),
+        meta: {
+          ...buildFallbackPayload().meta,
+          dataStatus: 'error',
+          message: `后端接口连接失败，已临时降级为 Mock 数据：${error.message}`
+        }
+      }
+    }
   }
 
   return buildFallbackPayload()
