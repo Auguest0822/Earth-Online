@@ -80,7 +80,7 @@ npm run dev:full
 该命令会同时启动：
 
 - Web 前端：`http://127.0.0.1:5173`
-- 新闻接口：`http://127.0.0.1:8787`
+- 新闻接口：`http://localhost:8080`
 
 浏览器打开 `http://127.0.0.1:5173` 即可访问项目。
 
@@ -118,7 +118,7 @@ NEWS_SERVER_PORT=8787
 可选配置：
 
 ```env
-VITE_NEWS_BACKEND_URL=http://127.0.0.1:8787/api
+VITE_NEWS_BACKEND_URL=http://localhost:8080/api
 ```
 
 本地开发时通常无需填写 `VITE_NEWS_BACKEND_URL`，Vite 会把 `/api` 请求代理到新闻服务。
@@ -146,7 +146,7 @@ GET /api/health
 示例地址：
 
 ```text
-http://127.0.0.1:8787/api/health
+http://localhost:8080/api/health
 ```
 
 ### 获取新闻

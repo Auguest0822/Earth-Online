@@ -36,8 +36,8 @@ npm run api
 接口地址：
 
 ```text
-http://127.0.0.1:8787/api/news?category=all
-http://127.0.0.1:8787/api/health
+http://localhost:8080/api/news?category=all
+http://localhost:8080/api/health
 ```
 
 ## 配置 NewsAPI
