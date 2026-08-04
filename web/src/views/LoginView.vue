@@ -168,12 +168,12 @@ const handleRegister = async () => {
   padding: 48px 40px;
   
   /* ----- 毛玻璃效果 ----- */
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.03);
 }
 
 .auth-tabs {
@@ -199,14 +199,14 @@ const handleRegister = async () => {
     &.active {
       color: #66C28A;
       font-weight: 700;
-      background: rgba(102, 194, 138, 0.12);
+      background: rgba(102, 194, 138, 0.08);
     }
   }
 
   .tab-divider {
     width: 1px;
     height: 20px;
-    background: rgba(0, 0, 0, 0.12);
+    background: rgba(0, 0, 0, 0.08);
   }
 }
 
@@ -256,15 +256,16 @@ const handleRegister = async () => {
     height: 48px;
     font-size: 16px;
     letter-spacing: 6px;
-    background: linear-gradient(135deg, #66C28A, #51A874);
+    background: linear-gradient(135deg, rgba(102, 194, 138, 0.72), rgba(81, 168, 116, 0.72));
     border: none;
     border-radius: 14px;
-    box-shadow: 0 6px 20px rgba(102, 194, 138, 0.3);
+    box-shadow: 0 6px 20px rgba(102, 194, 138, 0.22);
     transition: all 0.3s;
 
     &:hover {
+      background: linear-gradient(135deg, rgba(102, 194, 138, 0.82), rgba(81, 168, 116, 0.82));
       transform: translateY(-1px);
-      box-shadow: 0 8px 28px rgba(102, 194, 138, 0.4);
+      box-shadow: 0 8px 28px rgba(102, 194, 138, 0.3);
     }
   }
 }
