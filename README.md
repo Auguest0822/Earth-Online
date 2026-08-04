@@ -169,16 +169,12 @@ GET /api/news?category=all
 
 ```text
 Earth-Online/
-├─ public/                 # 公共静态资源
-├─ src/                    # Vue Web 前端
-│  ├─ api/                 # 前端接口请求
-│  ├─ assets/              # 图片等资源
-│  ├─ components/          # 可复用组件
-│  ├─ mock/                # 前端演示数据
-│  ├─ router/              # Vue Router
-│  ├─ stores/              # Pinia 状态管理
-│  ├─ styles/              # 全局样式与变量
-│  └─ views/               # 页面组件
+├─ web/                    # Vue 网页端
+│  ├─ public/              # 公共静态资源
+│  ├─ src/                 # 页面、组件、状态与接口请求
+│  ├─ index.html
+│  ├─ package.json
+│  └─ vite.config.js
 ├─ server/                 # 后端与新闻聚合服务
 │  ├─ news-server.js       # 当前可运行的新闻接口
 │  ├─ dev.js               # 前后端联合启动脚本
@@ -188,11 +184,11 @@ Earth-Online/
 │  └─ mobile/              # 未来 Flutter 移动端
 ├─ docs/                   # 需求、接口、数据库和开发文档
 ├─ .env.example            # 环境变量示例
-├─ package.json
-└─ vite.config.js
+├─ package.json            # npm workspaces 与统一启动命令
+└─ package-lock.json
 ```
 
-Web 前端目前保留在仓库根目录，便于考核阶段直接运行。未来的 Flutter 工程放在 `apps/mobile/` 中，两端通过 `server/` 提供的 API 共享数据和业务能力，彼此的启动命令不会冲突。
+Vue 网页端统一放在 `web/`，`apps/` 只为后续移动端扩展保留。根目录通过 npm workspaces 提供统一命令，因此仍可直接运行 `npm run dev`；未来 Flutter 工程放在 `apps/mobile/`，两端通过 `server/` 提供的 API 共享数据和业务能力。
 
 ## 开发路线
 
