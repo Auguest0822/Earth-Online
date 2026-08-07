@@ -6,78 +6,81 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class RecordService {
 
-    private final AtomicLong idGenerator = new AtomicLong(0);
+    private final RecordRepository recordRepository;
 
-    private final List<RecordResponse> records =
-            new CopyOnWriteArrayList<>();
+    public RecordService(RecordRepository recordRepository) {
+        this.recordRepository = recordRepository;
+    }
 
     public List<RecordResponse> list() {
-        return List.copyOf(records);
+        return recordRepository.findAll()
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     public RecordResponse create(CreateRecordRequest request) {
-        RecordResponse record = new RecordResponse(
-                idGenerator.incrementAndGet(),
+        RecordEntity entity = new RecordEntity(
                 request.title(),
-                request.content()
+                request.content(),
+                LocalDateTime.now()
         );
 
-        records.add(record);
-        return record;
+        RecordEntity saved = recordRepository.save(entity);
+
+        return toResponse(saved);
     }
 
     public RecordResponse findById(Long id) {
-        return records.stream()
-                .filter(record -> record.id().equals(id))
-                .findFirst()
+        RecordEntity entity = recordRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "记录不存在"
                 ));
+
+        return toResponse(entity);
     }
 
     public RecordResponse update(
             Long id,
             CreateRecordRequest request
     ) {
-        for (int i = 0; i < records.size(); i++) {
-            RecordResponse oldRecord = records.get(i);
+        RecordEntity entity = recordRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "记录不存在"
+                ));
 
-            if (oldRecord.id().equals(id)) {
-                RecordResponse updatedRecord = new RecordResponse(
-                        id,
-                        request.title(),
-                        request.content()
-                );
+        entity.setTitle(request.title());
+        entity.setContent(request.content());
 
-                records.set(i, updatedRecord);
-                return updatedRecord;
-            }
-        }
+        RecordEntity saved = recordRepository.save(entity);
 
-        throw new ResponseStatusException(
-                HttpStatus.NOT_FOUND,
-                "记录不存在"
-        );
+        return toResponse(saved);
     }
 
     public void delete(Long id) {
-        boolean removed = records.removeIf(
-                record -> record.id().equals(id)
-        );
-
-        if (!removed) {
+        if (!recordRepository.existsById(id)) {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
                     "记录不存在"
             );
         }
+
+        recordRepository.deleteById(id);
+    }
+
+    private RecordResponse toResponse(RecordEntity entity) {
+        return new RecordResponse(
+                entity.getId(),
+                entity.getTitle(),
+                entity.getContent()
+        );
     }
 }

@@ -2,11 +2,11 @@ spring:
   application:
     name: earth-online-backend
 
-datasource:
-  url: jdbc:mysql://localhost:3306/earth_online?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-  username: root
-  password: 123456
-  driver-class-name: com.mysql.cj.jdbc.Driver
+  datasource:
+    url: jdbc:mysql://localhost:3306/earth_online?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
@@ -17,5 +17,4 @@ datasource:
         format_sql: true
 
 server:
-    port:8080
-
+  port: 8080
