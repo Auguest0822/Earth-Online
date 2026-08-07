@@ -18,7 +18,8 @@ export class ApiError extends Error {
 export const request = async (path, options = {}) => {
   const { method = 'GET', body, params, headers = {}, signal } = options
   const query = params ? `?${new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== '')).toString()}` : ''
-  const token = getAccessToken()
+  const isAuthRequest = path === '/auth/login' || path === '/auth/register'
+  const token = isAuthRequest ? '' : getAccessToken()
   const response = await fetch(`${API_BASE_URL}${path}${query}`, {
     method,
     signal,

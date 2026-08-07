@@ -133,9 +133,9 @@ const handleRegister = async () => {
   if (getAppDataSource() !== 'mock') {
     try {
       await register({
-        username: registerForm.username,
-        email: registerForm.email,
-        password: registerForm.password
+          username: registerForm.username,
+          password: registerForm.password,
+          nickname: registerForm.email
       })
       await login({ username: registerForm.username, password: registerForm.password })
     } catch (error) {
