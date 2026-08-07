@@ -9,18 +9,24 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 
+import com.earthonline.backend.auth.JwtService;
+import com.earthonline.backend.user.dto.LoginResponse;
+
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     public UserService(
             UserRepository userRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     public UserResponse register(RegisterRequest request) {
@@ -50,7 +56,10 @@ public class UserService {
         );
     }
 
-    public UserResponse login(String username, String password) {
+    public LoginResponse login(
+            String username,
+            String password
+    ) {
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED,
@@ -70,11 +79,18 @@ public class UserService {
             );
         }
 
-        return new UserResponse(
+        UserResponse userResponse = new UserResponse(
                 user.getId(),
                 user.getUsername(),
                 user.getNickname()
         );
+
+        String token = jwtService.generateToken(
+                user.getId(),
+                user.getUsername()
+        );
+
+        return new LoginResponse(token, userResponse);
     }
 
 }

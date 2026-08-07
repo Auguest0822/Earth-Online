@@ -15,6 +15,9 @@ spring:
     properties:
       hibernate:
         format_sql: true
+jwt:
+  secret: earth-online-development-secret-key-please-change-123456
+  expiration-ms: 86400000
 
 server:
   port: 8080
