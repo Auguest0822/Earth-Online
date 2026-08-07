@@ -6,7 +6,6 @@
           <img :src="profileStore.userInfo?.avatar" class="avatar" />
           <div class="user-info">
             <div class="user-line" :title="profileStore.userInfo?.nickname">
-              <span class="level">Lv.{{ displayLevel }}</span>
               <span class="name">{{ displayName }}</span>
             </div>
           </div>
@@ -45,10 +44,6 @@ import { useRouter } from 'vue-router'
 
 const profileStore = useProfileStore()
 const router = useRouter()
-
-const displayLevel = computed(() => {
-  return profileStore.userStats?.level ?? profileStore.userInfo?.level ?? 0
-})
 
 const displayName = computed(() => {
   const nickname = profileStore.userInfo?.nickname || '地球居民'
@@ -159,13 +154,6 @@ const handleCommand = (command) => {
         align-items: center;
         gap: 6px;
         min-width: 0;
-      }
-
-      .level {
-        flex: 0 0 auto;
-        color: $text-secondary;
-        font-size: 12px;
-        font-weight: 500;
       }
 
       .name {

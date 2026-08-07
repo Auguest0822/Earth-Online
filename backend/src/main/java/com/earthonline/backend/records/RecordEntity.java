@@ -21,17 +21,22 @@ public class RecordEntity {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "user_id")
+    private Long userId;
+
     public RecordEntity() {
     }
 
     public RecordEntity(
             String title,
             String content,
-            LocalDateTime createdAt
+            LocalDateTime createdAt,
+            Long userId
     ) {
         this.title = title;
         this.content = content;
         this.createdAt = createdAt;
+        this.userId = userId;
     }
 
     public Long getId() {
@@ -60,5 +65,13 @@ public class RecordEntity {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 }

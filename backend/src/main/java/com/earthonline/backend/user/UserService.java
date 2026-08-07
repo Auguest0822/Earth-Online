@@ -93,4 +93,18 @@ public class UserService {
         return new LoginResponse(token, userResponse);
     }
 
+    public UserResponse getCurrentUser(String username) {
+        UserEntity user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "用户不存在"
+                ));
+
+        return new UserResponse(
+                user.getId(),
+                user.getUsername(),
+                user.getNickname()
+        );
+    }
+
 }

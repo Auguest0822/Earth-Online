@@ -10,6 +10,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+
 @RestController
 @RequestMapping("/api/auth")
 public class UserController {
@@ -36,4 +39,14 @@ public class UserController {
                 request.password()
         );
     }
+
+    @GetMapping("/me")
+    public UserResponse currentUser(
+            Authentication authentication
+    ) {
+        return userService.getCurrentUser(
+                authentication.getName()
+        );
+    }
+
 }

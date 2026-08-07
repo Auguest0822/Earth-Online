@@ -5,8 +5,6 @@ export const getProfileData = () => {
       avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
       nickname: '地球居民 \uD83C\uDF31',
       slogan: '生活不是为了赶路，而是为了感受路上的风景，风...',
-      level: 24,
-      experience: 65, // percentage
       birthDate: '2001-05-21'
     },
     timelines: [

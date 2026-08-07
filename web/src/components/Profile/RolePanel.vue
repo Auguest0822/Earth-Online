@@ -12,16 +12,6 @@
         <img :src="displayInfo.avatar" class="avatar" />
         <div class="check-icon"><el-icon><Check /></el-icon></div>
       </div>
-      <div class="level-info">
-        <div class="level-header">
-          <h3>Lv.{{ displayInfo.level }}</h3>
-        </div>
-        <div class="exp-text">生存年数 <b>{{ displayInfo.level }}年</b> 
-          <el-icon class="info-icon"><InfoFilled /></el-icon>
-        </div>
-        <el-progress :percentage="displayInfo.experience" :show-text="false" color="#66C28A" />
-        <div class="exp-hint">{{ displayInfo.nextLevelExp }}</div>
-      </div>
     </div>
 
     <div class="right-section">
@@ -138,28 +128,6 @@ const displayInfo = computed(() => {
     }
   }
 
-  .level-info {
-    flex: 1;
-    .level-header h3 {
-      margin: 0 0 4px 0;
-      color: $text-main;
-      font-size: 22px;
-    }
-    .exp-text {
-      font-size: 13px;
-      color: $text-regular;
-      margin-bottom: 8px;
-      display: flex; align-items: center; gap: 4px;
-      b { color: $text-main; }
-      .info-icon { font-size: 14px; color: $text-secondary; }
-    }
-    .exp-hint {
-      font-size: 12px;
-      color: $text-secondary;
-      text-align: right;
-      margin-top: 4px;
-    }
-  }
 }
 
 .right-section {

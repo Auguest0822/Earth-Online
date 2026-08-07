@@ -10,7 +10,6 @@
           <h2>{{ profileStore.userInfo.nickname }}</h2>
           <p>{{ profileStore.userInfo.slogan }}</p>
           <div class="identity-tags">
-            <span>Lv.{{ displayInfo.level }}</span>
             <span>{{ displayInfo.survivalDuration }}</span>
             <span>{{ profileStore.userInfo.birthDate }}</span>
           </div>
@@ -22,17 +21,6 @@
         编辑资料
       </el-button>
 
-      <div class="level-card">
-        <div class="level-top">
-          <div>
-            <span>成长进度</span>
-            <strong>Lv.{{ displayInfo.level }}</strong>
-          </div>
-          <el-icon><TrendCharts /></el-icon>
-        </div>
-        <el-progress :percentage="displayInfo.experience" :show-text="false" color="#66C28A" />
-        <p>{{ displayInfo.nextLevelExp }}</p>
-      </div>
     </section>
 
     <section class="stats-grid">
@@ -280,7 +268,7 @@ const formatMonth = (dateStr) => {
 
 .profile-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 320px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 24px;
   padding: 28px;
@@ -366,52 +354,12 @@ const formatMonth = (dateStr) => {
   }
 }
 
-.level-card,
 .panel,
 .stat-card {
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid rgba(102, 194, 138, 0.12);
   border-radius: $radius-base;
   box-shadow: $shadow-base;
-}
-
-.level-card {
-  padding: 22px;
-  align-self: stretch;
-
-  p {
-    margin: 12px 0 0;
-    color: $text-secondary;
-    font-size: 12px;
-  }
-}
-
-.level-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 18px;
-
-  span,
-  strong {
-    display: block;
-  }
-
-  span {
-    margin-bottom: 6px;
-    color: $text-secondary;
-    font-size: 12px;
-  }
-
-  strong {
-    color: $text-main;
-    font-size: 26px;
-  }
-
-  .el-icon {
-    color: $primary-color;
-    font-size: 28px;
-  }
 }
 
 .stats-grid {

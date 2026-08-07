@@ -26,8 +26,7 @@ const saveUserInfo = (userInfo) => {
     avatar: userInfo.avatar,
     nickname: userInfo.nickname,
     slogan: userInfo.slogan,
-    birthDate: userInfo.birthDate,
-    level: userInfo.level
+    birthDate: userInfo.birthDate
   }
 
   try {
@@ -82,11 +81,6 @@ const buildSurvivalStats = (userInfo) => {
   const nextBirthday = buildBirthday(birth, birth.getFullYear() + years + 1)
 
   const survivalDays = daysBetween(birth, today)
-  const daysIntoLevel = daysBetween(lastBirthday, today)
-  const daysInLevel = Math.max(1, daysBetween(lastBirthday, nextBirthday))
-  const experience = Math.min(100, Math.round((daysIntoLevel / daysInLevel) * 100))
-  const daysLeft = Math.max(0, daysInLevel - daysIntoLevel)
-
   let months = today.getMonth() - lastBirthday.getMonth()
   const dayOffset = today.getDate() - lastBirthday.getDate()
   if (dayOffset < 0) {
@@ -101,11 +95,8 @@ const buildSurvivalStats = (userInfo) => {
   const survivalDuration = `${years}年${months}个月${durationDays}天`
 
   return {
-    level: years,
-    experience,
     survivalDays,
-    survivalDuration,
-    nextLevelExp: `还需 ${daysLeft} 天 升级 Lv.${years + 1}`
+    survivalDuration
   }
 }
 
