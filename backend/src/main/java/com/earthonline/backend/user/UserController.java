@@ -4,6 +4,7 @@ import com.earthonline.backend.user.dto.RegisterRequest;
 import com.earthonline.backend.user.dto.UserResponse;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+import com.earthonline.backend.user.dto.LoginRequest;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -21,4 +22,15 @@ public class UserController {
     ) {
         return userService.register(request);
     }
+
+    @PostMapping("/login")
+    public UserResponse login(
+            @Valid @RequestBody LoginRequest request
+    ) {
+        return userService.login(
+                request.username(),
+                request.password()
+        );
+    }
+
 }

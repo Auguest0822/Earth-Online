@@ -49,4 +49,32 @@ public class UserService {
                 saved.getNickname()
         );
     }
+
+    public UserResponse login(String username, String password) {
+        UserEntity user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "用户名或密码错误"
+                ));
+
+        boolean passwordMatches =
+                passwordEncoder.matches(
+                        password,
+                        user.getPasswordHash()
+                );
+
+        if (!passwordMatches) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "用户名或密码错误"
+            );
+        }
+
+        return new UserResponse(
+                user.getId(),
+                user.getUsername(),
+                user.getNickname()
+        );
+    }
+
 }
