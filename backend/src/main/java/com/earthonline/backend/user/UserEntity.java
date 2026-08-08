@@ -18,8 +18,8 @@ public class UserEntity {
     @Column(nullable = false, length = 255)
     private String passwordHash;
 
-    @Column(length = 50)
-    private String nickname;
+    @Column(nullable = false, unique = true, length = 255)
+    private String email;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
@@ -30,12 +30,12 @@ public class UserEntity {
     public UserEntity(
             String username,
             String passwordHash,
-            String nickname,
+            String email,
             LocalDateTime createdAt
     ) {
         this.username = username;
         this.passwordHash = passwordHash;
-        this.nickname = nickname;
+        this.email = email;
         this.createdAt = createdAt;
     }
 
@@ -51,8 +51,8 @@ public class UserEntity {
         return passwordHash;
     }
 
-    public String getNickname() {
-        return nickname;
+    public String getEmail() {
+        return email;
     }
 
     public LocalDateTime getCreatedAt() {

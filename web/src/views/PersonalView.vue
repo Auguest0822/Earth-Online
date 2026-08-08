@@ -7,7 +7,7 @@
         </div>
         <div class="identity-text">
           <span class="eyebrow">My Earth Archive</span>
-          <h2>{{ profileStore.userInfo.nickname }}</h2>
+        <h2>{{ profileStore.userInfo.username || profileStore.userInfo.nickname }}</h2>
           <p>{{ profileStore.userInfo.slogan }}</p>
           <div class="identity-tags">
             <span>{{ displayInfo.survivalDuration }}</span>

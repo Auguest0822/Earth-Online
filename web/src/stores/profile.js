@@ -1,9 +1,8 @@
 import { defineStore } from 'pinia'
 import { getProfileData } from '../mock/index'
 import { getAppDataSource } from '../api/config'
-import { getProfile, updateProfile } from '../api/modules/profile'
 import { createRecord, deleteRecord, listRecords, updateRecord } from '../api/modules/records'
-import { getDashboard } from '../api/modules/stats'
+import { getCurrentUser } from '../api/modules/auth'
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 const USER_INFO_STORAGE_KEY = 'earth-online:user-info'
@@ -127,16 +126,24 @@ export const useProfileStore = defineStore('profile', {
       const source = getAppDataSource()
       if (source !== 'mock') {
         try {
-          const [profile, records, dashboard] = await Promise.all([
-            getProfile(), listRecords({ page: 1, pageSize: 100 }), getDashboard()
+          const [user, records] = await Promise.all([
+            getCurrentUser(), listRecords({ page: 1, pageSize: 100 })
           ])
-          this.userInfo = profile
-          this.timelines = (records.items || records).sort(sortTimelinesByDateDesc)
-          this.eventsData = dashboard.eventsData || []
-          this.moodTrend = dashboard.moodTrend || []
-          this.keywords = dashboard.keywords || []
-          this.futureLetters = dashboard.futureLetters || []
-          return { userInfo: profile, timelines: this.timelines, ...dashboard }
+          this.userInfo = {
+            ...(this.userInfo || {}),
+            id: user.id,
+            username: user.username,
+            email: user.email
+          }
+          this.timelines = (records.items || records).map(record => ({
+            ...record,
+            date: record.date || record.createdAt || new Date().toISOString()
+          })).sort(sortTimelinesByDateDesc)
+          this.eventsData = []
+          this.moodTrend = []
+          this.keywords = []
+          this.futureLetters = []
+          return { userInfo: this.userInfo, timelines: this.timelines }
         } catch (error) {
           if (source === 'api') throw error
           console.warn('[Earth Online] business API unavailable, using mock data:', error)
@@ -199,7 +206,7 @@ export const useProfileStore = defineStore('profile', {
         ...userInfo
       }
       saveUserInfo(this.userInfo)
-      if (getAppDataSource() !== 'mock') await updateProfile(userInfo)
+      // 当前后端尚未提供 /api/profile，资料先保存在浏览器本地。
     }
   }
 })

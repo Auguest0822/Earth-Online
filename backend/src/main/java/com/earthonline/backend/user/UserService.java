@@ -43,7 +43,7 @@ public class UserService {
         UserEntity user = new UserEntity(
                 request.username(),
                 passwordHash,
-                request.nickname(),
+                request.email(),
                 LocalDateTime.now()
         );
 
@@ -52,7 +52,7 @@ public class UserService {
         return new UserResponse(
                 saved.getId(),
                 saved.getUsername(),
-                saved.getNickname()
+                saved.getEmail()
         );
     }
 
@@ -82,7 +82,7 @@ public class UserService {
         UserResponse userResponse = new UserResponse(
                 user.getId(),
                 user.getUsername(),
-                user.getNickname()
+                user.getEmail()
         );
 
         String token = jwtService.generateToken(
@@ -103,7 +103,7 @@ public class UserService {
         return new UserResponse(
                 user.getId(),
                 user.getUsername(),
-                user.getNickname()
+                user.getEmail()
         );
     }
 

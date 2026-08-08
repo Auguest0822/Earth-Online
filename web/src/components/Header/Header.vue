@@ -41,19 +41,21 @@
 import { computed } from 'vue'
 import { useProfileStore } from '@/stores/profile'
 import { useRouter } from 'vue-router'
+import { logout } from '@/api/modules/auth'
 
 const profileStore = useProfileStore()
 const router = useRouter()
 
 const displayName = computed(() => {
-  const nickname = profileStore.userInfo?.nickname || '地球居民'
+  const nickname = profileStore.userInfo?.username || profileStore.userInfo?.nickname || '地球居民'
   return Array.from(nickname).slice(0, 10).join('')
 })
 
 const handleCommand = (command) => {
   if (command === 'switch' || command === 'logout') {
-    // 可以在这里补充清除登录状态等逻辑
-    router.push('/login')
+    logout()
+    profileStore.$reset()
+    router.replace('/login')
   }
 }
 </script>

@@ -432,7 +432,8 @@ onMounted(async () => {
     const data = await listFutureLetters({ status: activeFilter.value })
     capsules.value = data.items || data
   } catch (error) {
-    ElMessage.error(error.message || '未来信件加载失败')
+    // 后端未来信件接口尚未实现时，保留页面内置的演示数据。
+    console.warn('[Earth Online] future letters API unavailable; using demo data', error)
   }
 })
 </script>

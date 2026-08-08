@@ -32,6 +32,7 @@
             </template>
           </el-input>
         </div>
+        <div v-if="loginError" class="login-error">{{ loginError }}</div>
         <div class="form-extra">
           <el-checkbox v-model="loginForm.remember">记住密码</el-checkbox>
           <a href="#">忘记密码？</a>
@@ -88,6 +89,7 @@ import { login, register } from '@/api/modules/auth'
 
 const router = useRouter()
 const activeTab = ref('login')
+const loginError = ref('')
 
 const loginForm = reactive({
   username: '',
@@ -103,6 +105,7 @@ const registerForm = reactive({
 })
 
 const handleLogin = async () => {
+  loginError.value = ''
   if (!loginForm.username || !loginForm.password) {
     ElMessage.warning('请输入用户名和密码')
     return
@@ -111,7 +114,9 @@ const handleLogin = async () => {
     try {
       await login({ username: loginForm.username, password: loginForm.password })
     } catch (error) {
-      ElMessage.error(error.message || '登录失败')
+      loginError.value = error.status === 401 || error.status === 403
+        ? '用户名或密码有误'
+        : (error.message || '登录失败')
       return
     }
   }
@@ -135,7 +140,7 @@ const handleRegister = async () => {
       await register({
           username: registerForm.username,
           password: registerForm.password,
-          nickname: registerForm.email
+          email: registerForm.email
       })
       await login({ username: registerForm.username, password: registerForm.password })
     } catch (error) {
@@ -151,6 +156,13 @@ const handleRegister = async () => {
 </script>
 
 <style lang="scss" scoped>
+.login-error {
+  margin: -8px 0 16px;
+  color: #e05252;
+  font-size: 13px;
+  text-align: left;
+}
+
 .auth-page {
   width: 100vw;
   height: 100vh;
