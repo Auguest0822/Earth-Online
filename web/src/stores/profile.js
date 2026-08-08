@@ -3,6 +3,8 @@ import { getProfileData } from '../mock/index'
 import { getAppDataSource } from '../api/config'
 import { createRecord, deleteRecord, listRecords, updateRecord } from '../api/modules/records'
 import { getCurrentUser } from '../api/modules/auth'
+import { updateProfile } from '../api/modules/profile'
+
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 const USER_INFO_STORAGE_KEY = 'earth-online:user-info'
@@ -168,6 +170,15 @@ export const useProfileStore = defineStore('profile', {
         }, 500)
       })
     },
+    async fetchMockTimelineData() {
+      const data = getProfileData()
+      this.timelines = data.timelines
+      this.eventsData = data.eventsData
+      this.moodTrend = data.moodTrend
+      this.keywords = data.keywords
+      this.futureLetters = data.futureLetters
+      return data
+    },
     async addTimeline(timeline) {
       const source = getAppDataSource()
       const payload = {
@@ -201,12 +212,23 @@ export const useProfileStore = defineStore('profile', {
       if (getAppDataSource() !== 'mock') await deleteRecord(id)
     },
     async updateUserInfo(userInfo) {
-      this.userInfo = {
-        ...(this.userInfo || {}),
-        ...userInfo
-      }
-      saveUserInfo(this.userInfo)
-      // 当前后端尚未提供 /api/profile，资料先保存在浏览器本地。
+  const source = getAppDataSource()
+
+  if (source !== 'mock') {
+    const saved = await updateProfile(userInfo)
+
+    this.userInfo = {
+      ...(this.userInfo || {}),
+      ...saved
     }
+  } else {
+    this.userInfo = {
+      ...(this.userInfo || {}),
+      ...userInfo
+    }
+  }
+
+  saveUserInfo(this.userInfo)
+}
   }
 })

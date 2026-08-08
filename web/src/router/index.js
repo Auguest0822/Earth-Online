@@ -41,9 +41,9 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      path: '/capsule',
-      name: 'capsule',
-      component: () => import('../views/CapsuleView.vue'),
+      path: '/future-letters',
+      name: 'future-letters',
+      component: () => import('../views/Future_letters.vue'),
       meta: { requiresAuth: true }
     },
     {

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 
+import java.time.LocalDate;
 @Entity
 @Table(name = "users")
 public class UserEntity {
@@ -23,6 +24,15 @@ public class UserEntity {
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(length = 500)
+    private String avatar;
+
+    @Column(length = 200)
+    private String slogan;
+
+    @Column(name = "birth_date")
+    private LocalDate birthDate;
 
     public UserEntity() {
     }
@@ -57,5 +67,32 @@ public class UserEntity {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public String getAvatar() {
+        return avatar;
+    }
+
+    public void setAvatar(String avatar) {
+        this.avatar = avatar;
+    }
+
+    public String getSlogan() {
+        return slogan;
+    }
+
+    public void setSlogan(String slogan) {
+        this.slogan = slogan;
+    }
+
+    public LocalDate getBirthDate() {
+        return birthDate;
+    }
+
+    public void setBirthDate(LocalDate birthDate) {
+        this.birthDate = birthDate;
+    }
+    public void setEmail(String email) {
+        this.email = email;
     }
 }

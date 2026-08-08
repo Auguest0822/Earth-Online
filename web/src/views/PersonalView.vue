@@ -3,7 +3,7 @@
     <section class="profile-hero">
       <div class="identity">
         <div class="avatar-ring">
-          <img :src="profileStore.userInfo.avatar" alt="avatar" />
+          <img :src="avatarPlaceholder" alt="avatar" />
         </div>
         <div class="identity-text">
           <span class="eyebrow">My Earth Archive</span>
@@ -115,7 +115,7 @@
       <el-form label-position="top" @submit.prevent>
         <div class="avatar-editor">
           <div class="avatar-preview">
-            <img :src="profileForm.avatar || profileStore.userInfo.avatar" alt="avatar preview" />
+            <img :src="avatarPlaceholder" alt="avatar preview" />
           </div>
           <div class="avatar-actions">
             <el-upload
@@ -132,8 +132,13 @@
           </div>
         </div>
 
-        <el-form-item label="用户名">
-          <el-input v-model="profileForm.nickname" maxlength="10" show-word-limit placeholder="输入用户名" />
+        <el-form-item>
+          <el-form-item label="用户名">
+            <el-input :model-value="profileStore.userInfo.username" disabled />
+          </el-form-item>
+          <el-form-item label="邮箱">
+            <el-input v-model="profileForm.email" type="email" />
+          </el-form-item>
         </el-form-item>
         <el-form-item label="个性签名">
           <el-input
@@ -160,6 +165,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useProfileStore } from '@/stores/profile'
+import avatarPlaceholder from '@/assets/picture/avator.jpg'
 
 const router = useRouter()
 const profileStore = useProfileStore()
@@ -179,9 +185,10 @@ const recentTimelines = computed(() => profileStore.timelines.slice(0, 3))
 const futureLetterCount = computed(() => profileStore.futureLetters.length)
 const profileEditorVisible = ref(false)
 const profileForm = reactive({
-  nickname: '',
+  email: '',
   avatar: '',
-  slogan: ''
+  slogan: '',
+  birthDate: ''
 })
 
 const statCards = computed(() => [
@@ -199,9 +206,10 @@ const settingItems = [
 ]
 
 const openProfileEditor = () => {
-  profileForm.nickname = profileStore.userInfo?.nickname || ''
+  profileForm.email = profileStore.userInfo?.email || ''
   profileForm.avatar = profileStore.userInfo?.avatar || ''
   profileForm.slogan = profileStore.userInfo?.slogan || ''
+  profileForm.birthDate = profileStore.userInfo?.birthDate || ''
   profileEditorVisible.value = true
 }
 
@@ -226,17 +234,18 @@ const handleAvatarFile = (uploadFile) => {
   reader.readAsDataURL(file)
 }
 
-const saveProfile = () => {
-  const nickname = Array.from(profileForm.nickname.trim()).slice(0, 10).join('')
-  if (!nickname) {
+const saveProfile = async () => {
+  const email = profileForm.email.trim()
+  if (!email) {
     ElMessage.warning('用户名不能为空')
     return
   }
 
-  profileStore.updateUserInfo({
-    nickname,
+  await profileStore.updateUserInfo({
+    email,
     avatar: profileForm.avatar.trim() || profileStore.userInfo.avatar,
-    slogan: profileForm.slogan.trim()
+    slogan: profileForm.slogan.trim(),
+    birthDate: profileForm.birthDate || null
   })
   profileEditorVisible.value = false
   ElMessage.success('个人资料已更新')
@@ -577,7 +586,8 @@ const formatMonth = (dateStr) => {
 }
 
 .avatar-actions {
-  display: flex;
+  display: none;
+  /* avatar upload is temporarily disabled */
   flex-direction: column;
   gap: 10px;
   min-width: 0;

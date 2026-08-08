@@ -83,7 +83,7 @@
           <div class="letter-preview">
             <div class="envelope">✉️</div>
             <div><strong>致未来的自己</strong><span>将在 2027-07-11 开启</span><b>365 <small>天后</small></b></div>
-            <el-button type="success" @click="router.push('/capsule')">写一封信</el-button>
+            <el-button type="success" @click="router.push('/future-letters')">写一封信</el-button>
           </div>
         </section>
 

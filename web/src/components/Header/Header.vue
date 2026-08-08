@@ -3,7 +3,7 @@
     <div class="header-right">
       <el-dropdown trigger="click" @command="handleCommand">
         <div class="user-profile">
-          <img :src="profileStore.userInfo?.avatar" class="avatar" />
+          <img :src="avatarPlaceholder" class="avatar" />
           <div class="user-info">
             <div class="user-line" :title="profileStore.userInfo?.nickname">
               <span class="name">{{ displayName }}</span>
@@ -42,6 +42,7 @@ import { computed } from 'vue'
 import { useProfileStore } from '@/stores/profile'
 import { useRouter } from 'vue-router'
 import { logout } from '@/api/modules/auth'
+import avatarPlaceholder from '@/assets/picture/avator.jpg'
 
 const profileStore = useProfileStore()
 const router = useRouter()

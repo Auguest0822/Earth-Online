@@ -577,3 +577,27 @@ jwt:
 ```
 
 目前登录只完成了“验证密码并生成 token”，还没有完成“请求携带 token 后识别当前用户”。这正是下一阶段的重点。
+## 未来信件模块规划（2026-08-08）
+
+未来信件模块已完成数据库表、用户隔离、增删改查接口，以及前端 mock/API 切换。
+
+当前接口：
+
+```text
+GET    /api/future-letters
+GET    /api/future-letters/{id}
+POST   /api/future-letters
+PATCH  /api/future-letters/{id}
+DELETE /api/future-letters/{id}
+POST   /api/future-letters/{id}/open
+```
+
+后续规划：完善开启时间和正文保护、草稿/封存状态、前端编辑删除、到期自动处理、隐私分享规则，以及接口测试。
+
+当前需要真实保存数据时使用：
+
+```env
+VITE_FUTURE_LETTERS_DATA_SOURCE=api
+```
+
+改为 `mock` 只用于展示页面，不会写入 MySQL。

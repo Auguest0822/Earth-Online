@@ -216,10 +216,10 @@
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getAppDataSource } from '@/api/config'
 import { createFutureLetter, listFutureLetters } from '@/api/modules/futureLetters'
 
 const moodOptions = ['期待', '平静', '勇敢', '迷茫', '快乐']
+const futureLettersSource = import.meta.env.VITE_FUTURE_LETTERS_DATA_SOURCE || 'mock'
 const datePresets = [
   { label: '明天', days: 1 },
   { label: '一个月后', days: 30 },
@@ -407,9 +407,22 @@ const sealCapsule = async () => {
     status: 'sealed',
     action: '等待中'
   }
-  if (getAppDataSource() !== 'mock') {
+  if (futureLettersSource === 'api') {
     try {
-      savedLetter = await createFutureLetter(payload)
+      const saved = await createFutureLetter({
+        title: payload.title,
+        content: payload.content,
+        mood: moodSummary.value,
+        openAt: payload.openAt,
+        status: payload.status,
+        visibility: payload.visibility,
+        allowEditBeforeOpen: payload.allowEditBeforeOpen
+      })
+      savedLetter = {
+        ...saved,
+        excerpt: saved.content?.slice(0, 36),
+        action: '等待中'
+      }
     } catch (error) {
       ElMessage.error(error.message || '信件封存失败')
       return
@@ -427,10 +440,14 @@ const sealCapsule = async () => {
 }
 
 onMounted(async () => {
-  if (getAppDataSource() === 'mock') return
+  if (futureLettersSource !== 'api') return
   try {
     const data = await listFutureLetters({ status: activeFilter.value })
-    capsules.value = data.items || data
+    capsules.value = (data.items || data).map(letter => ({
+      ...letter,
+      excerpt: letter.excerpt || letter.content?.slice(0, 36),
+      action: letter.status === 'sealed' ? '等待中' : letter.status
+    }))
   } catch (error) {
     // 后端未来信件接口尚未实现时，保留页面内置的演示数据。
     console.warn('[Earth Online] future letters API unavailable; using demo data', error)

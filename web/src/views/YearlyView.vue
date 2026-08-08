@@ -76,7 +76,7 @@ const averageMood = computed(() => {
 })
 
 onMounted(() => {
-  profileStore.fetchProfileData()
+  profileStore.fetchMockTimelineData()
 })
 </script>
 

@@ -35,7 +35,7 @@ const menuItems = [
   { path: '/earth', label: '地球动态', icon: 'Compass' },
   { path: '/timeline', label: '时间线', icon: 'Clock' },
   { path: '/yearly', label: '年度记录', icon: 'Calendar' },
-  { path: '/capsule', label: '写给未来', icon: 'MessageBox' },
+  { path: '/future-letters', label: '写给未来', icon: 'MessageBox' },
   { path: '/friends', label: '朋友', icon: 'UserFilled' },
   { path: '/profile', label: '我的地球档案', icon: 'User' }
 ]

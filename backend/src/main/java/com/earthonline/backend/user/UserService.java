@@ -52,7 +52,10 @@ public class UserService {
         return new UserResponse(
                 saved.getId(),
                 saved.getUsername(),
-                saved.getEmail()
+                saved.getEmail(),
+                saved.getAvatar(),
+                saved.getSlogan(),
+                saved.getBirthDate()
         );
     }
 
@@ -82,7 +85,10 @@ public class UserService {
         UserResponse userResponse = new UserResponse(
                 user.getId(),
                 user.getUsername(),
-                user.getEmail()
+                user.getEmail(),
+                user.getAvatar(),
+                user.getSlogan(),
+                user.getBirthDate()
         );
 
         String token = jwtService.generateToken(
@@ -103,7 +109,10 @@ public class UserService {
         return new UserResponse(
                 user.getId(),
                 user.getUsername(),
-                user.getEmail()
+                user.getEmail(),
+                user.getAvatar(),
+                user.getSlogan(),
+                user.getBirthDate()
         );
     }
 
