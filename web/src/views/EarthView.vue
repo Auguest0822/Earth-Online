@@ -141,10 +141,13 @@ import { fetchEarthNews, getNewsDataSource, setNewsDataSource } from '@/api/news
 
 const categories = [
   { label: '全部', value: 'all' },
-  { label: '气候', value: 'climate' },
-  { label: '科技', value: 'science' },
-  { label: '社会', value: 'society' },
-  { label: '经济', value: 'economy' }
+  { label: '国际', value: 'guoji' },
+  { label: '国内', value: 'guonei' },
+  { label: '科技', value: 'keji' },
+  { label: '健康', value: 'jiankang' },
+  { label: '财经', value: 'caijing' },
+  { label: '军事', value: 'junshi' },
+  { label: '娱乐', value: 'yule' }
 ]
 
 const selectedCategory = ref('all')

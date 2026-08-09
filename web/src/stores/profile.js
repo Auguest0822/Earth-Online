@@ -25,7 +25,8 @@ const saveUserInfo = (userInfo) => {
 
   const savedUserInfo = {
     avatar: userInfo.avatar,
-    nickname: userInfo.nickname,
+    username: userInfo.username,
+    email: userInfo.email,
     slogan: userInfo.slogan,
     birthDate: userInfo.birthDate
   }
@@ -135,7 +136,10 @@ export const useProfileStore = defineStore('profile', {
             ...(this.userInfo || {}),
             id: user.id,
             username: user.username,
-            email: user.email
+            email: user.email,
+            avatar: user.avatar,
+            slogan: user.slogan,
+            birthDate: user.birthDate
           }
           this.timelines = (records.items || records).map(record => ({
             ...record,

@@ -601,3 +601,46 @@ VITE_FUTURE_LETTERS_DATA_SOURCE=api
 ```
 
 改为 `mock` 只用于展示页面，不会写入 MySQL。
+## 2026-08-08 问题总结：个人资料与未来信件
+
+### 1. 未来信件刷新后消失
+
+原因：页面使用 mock 数据，刷新后不会从数据库读取。解决：增加 `VITE_FUTURE_LETTERS_DATA_SOURCE=api`，让页面通过 `/api/future-letters` 从 MySQL 加载数据。
+
+### 2. 未来信件无法保存到数据库
+
+原因：后端缺少实体、Repository、Service 和 Controller。解决：创建 `future_letters` 表、`FutureLetterEntity`、Repository、DTO、Service 和 Controller，并通过 `user_id` 实现用户隔离。
+
+### 3. 用户资料接口返回 403
+
+原因：IDEA 中仍运行旧进程或旧安全配置。解决：停止旧后端，执行 `Build → Rebuild Project`，重新运行 `BackendApplication`，并重新登录获取新的 JWT。
+
+### 4. 用户资料修改后没有保存
+
+原因：前端原来只保存到 `localStorage`，没有调用后端接口。解决：增加 `GET /api/profile` 和 `PATCH /api/profile`，将头像、邮箱、签名和出生日期保存到 `users` 表。
+
+### 5. nickname、email 字段混用
+
+原因：旧前端使用 nickname，但项目需要独立的邮箱字段。解决：将数据库列从 `nickname` 改为 `email`，并同步修改 Entity、DTO、Service 和 Vue 表单。username 作为登录账号，email 作为邮箱信息。
+
+### 6. 头像上传失败
+
+原因：图片 Base64 内容超过 `VARCHAR(500)` 字段长度。解决：暂时关闭上传，使用 `web/src/assets/picture/avator.jpg` 作为占位图。以后应使用文件存储或对象存储，数据库只保存图片 URL。
+
+### 7. 时间线和年度记录请求失败
+
+原因：后端接口尚未开发，但全局数据源切换到了 API。解决：增加 `fetchMockTimelineData()`，让两个页面暂时使用 mock 数据，其他已完成模块继续使用 API。
+
+### 8. 个人资料页面出现两个用户名
+
+原因：旧 nickname 表单和新的 username/email 表单同时存在。解决：只保留一个只读 username 输入框和一个可编辑 email 输入框。username 是身份标识，后续若要修改，需要同步处理 JWT 和唯一性。
+
+### 今日知识点
+
+- mock 适合展示，API 才能持久化；
+- 修改 `.env.local` 后必须重启 Vite；
+- 修改 Spring Security 后要停止旧进程并重新构建；
+- JWT 过期后需要重新登录；
+- 用户身份应从 JWT 获取，不能相信前端传来的 `user_id`；
+- 数据库字段、Entity、DTO 和 Vue 表单必须保持一致；
+- 图片不适合直接存入普通短字符串字段。

@@ -7,7 +7,7 @@
         </div>
         <div class="identity-text">
           <span class="eyebrow">My Earth Archive</span>
-        <h2>{{ profileStore.userInfo.username || profileStore.userInfo.nickname }}</h2>
+        <h2>{{ profileStore.userInfo.username || '地球居民' }}</h2>
           <p>{{ profileStore.userInfo.slogan }}</p>
           <div class="identity-tags">
             <span>{{ displayInfo.survivalDuration }}</span>
@@ -48,7 +48,7 @@
             </el-button>
           </div>
 
-          <div class="trace-list">
+          <div v-if="recentTimelines.length" class="trace-list">
             <div v-for="item in recentTimelines" :key="item.id" class="trace-item">
               <div class="trace-date">
                 <strong>{{ formatDay(item.date) }}</strong>
@@ -62,6 +62,12 @@
               </div>
             </div>
           </div>
+          <div v-else class="empty-state">
+            <div class="empty-state-icon">📝</div>
+            <strong>还没有记录</strong>
+            <p>记录今天发生的事情，慢慢建立属于你的地球轨迹。</p>
+            <el-button type="success" plain @click="router.push('/')">记录此刻</el-button>
+          </div>
         </article>
 
         <article class="panel keyword-panel">
@@ -71,7 +77,7 @@
               <p>这些词构成了最近的你</p>
             </div>
           </div>
-          <div class="keyword-cloud">
+          <div v-if="profileStore.keywords.length" class="keyword-cloud">
             <span
               v-for="item in profileStore.keywords"
               :key="item.name"
@@ -79,6 +85,12 @@
             >
               {{ item.name }}
             </span>
+          </div>
+          <div v-else class="empty-state keyword-empty-state">
+            <div class="empty-state-icon">#</div>
+            <strong>还没有关键词</strong>
+            <p>记录生活并添加标签后，这里会生成属于你的关键词云。</p>
+            <el-button type="success" plain @click="router.push('/')">去写一条记录</el-button>
           </div>
         </article>
       </div>
@@ -109,37 +121,39 @@
     <el-dialog
       v-model="profileEditorVisible"
       title="编辑个人资料"
-      width="520px"
+      width="760px"
       class="profile-editor-dialog"
     >
       <el-form label-position="top" @submit.prevent>
-        <div class="avatar-editor">
+        <div class="profile-editor-layout">
+          <aside class="avatar-editor">
           <div class="avatar-preview">
             <img :src="avatarPlaceholder" alt="avatar preview" />
           </div>
-          <div class="avatar-actions">
-            <el-upload
-              :auto-upload="false"
-              :show-file-list="false"
-              accept="image/*"
-              @change="handleAvatarFile"
-            >
-              <el-button plain type="success">
-                <el-icon><Upload /></el-icon>
-                选择头像
-              </el-button>
-            </el-upload>
+          <div class="avatar-note">
+            <strong>{{ profileStore.userInfo.username }}</strong>
+            <span>头像上传功能将在后续开放</span>
           </div>
-        </div>
+          </aside>
 
-        <el-form-item>
+          <section class="profile-editor-fields">
           <el-form-item label="用户名">
             <el-input :model-value="profileStore.userInfo.username" disabled />
           </el-form-item>
           <el-form-item label="邮箱">
-            <el-input v-model="profileForm.email" type="email" />
+            <el-input v-model="profileForm.email" type="email" placeholder="请输入常用邮箱" />
           </el-form-item>
-        </el-form-item>
+          <el-form-item label="生日">
+            <el-date-picker
+              v-model="profileForm.birthDate"
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="请选择出生日期"
+              :disabled-date="disabledFutureDate"
+              style="width: 100%"
+            />
+            <p class="field-help">用于计算“在地球上生存的天数”，请填写真实日期。</p>
+          </el-form-item>
         <el-form-item label="个性签名">
           <el-input
             v-model="profileForm.slogan"
@@ -150,6 +164,8 @@
             placeholder="写一句现在的你"
           />
         </el-form-item>
+          </section>
+        </div>
       </el-form>
 
       <template #footer>
@@ -171,9 +187,7 @@ const router = useRouter()
 const profileStore = useProfileStore()
 
 onMounted(() => {
-  if (!profileStore.userInfo || !profileStore.timelines.length) {
-    profileStore.fetchProfileData()
-  }
+  profileStore.fetchProfileData()
 })
 
 const displayInfo = computed(() => ({
@@ -234,21 +248,28 @@ const handleAvatarFile = (uploadFile) => {
   reader.readAsDataURL(file)
 }
 
+const disabledFutureDate = (date) => date.getTime() > Date.now()
+
 const saveProfile = async () => {
   const email = profileForm.email.trim()
   if (!email) {
-    ElMessage.warning('用户名不能为空')
+    ElMessage.warning('邮箱不能为空')
     return
   }
 
-  await profileStore.updateUserInfo({
-    email,
-    avatar: profileForm.avatar.trim() || profileStore.userInfo.avatar,
-    slogan: profileForm.slogan.trim(),
-    birthDate: profileForm.birthDate || null
-  })
-  profileEditorVisible.value = false
-  ElMessage.success('个人资料已更新')
+  try {
+    await profileStore.updateUserInfo({
+      email,
+      avatar: profileForm.avatar.trim() || profileStore.userInfo.avatar,
+      slogan: profileForm.slogan.trim(),
+      birthDate: profileForm.birthDate || null
+    })
+    profileEditorVisible.value = false
+    ElMessage.success('个人资料已更新')
+  } catch (error) {
+    const message = error?.message || '保存失败，请重新登录后再试'
+    ElMessage.error(message)
+  }
 }
 
 const getDate = (dateStr) => new Date(dateStr)
@@ -529,6 +550,49 @@ const formatMonth = (dateStr) => {
   }
 }
 
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 190px;
+  padding: 20px;
+  text-align: center;
+  border: 1px dashed rgba(102, 194, 138, 0.3);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(246, 252, 248, 0.9), rgba(255, 255, 255, 0.8));
+
+  .empty-state-icon {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    margin-bottom: 10px;
+    color: #3f9b68;
+    background: rgba(102, 194, 138, 0.13);
+    border-radius: 14px;
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  strong {
+    color: $text-main;
+    font-size: 16px;
+  }
+
+  p {
+    max-width: 360px;
+    margin: 8px 0 14px;
+    color: $text-secondary;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+}
+
+.keyword-empty-state {
+  min-height: 150px;
+}
+
 .setting-list {
   display: flex;
   flex-direction: column;
@@ -562,11 +626,51 @@ const formatMonth = (dateStr) => {
 }
 
 .avatar-editor {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  gap: 18px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  margin-bottom: 18px;
+  justify-content: flex-start;
+  min-height: 100%;
+  padding: 14px 28px 14px 4px;
+  border-right: 1px solid rgba(102, 194, 138, 0.18);
+}
+
+.profile-editor-layout {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 28px;
+  align-items: stretch;
+}
+
+.profile-editor-fields {
+  min-width: 0;
+}
+
+.avatar-note {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+  text-align: center;
+
+  strong {
+    color: $text-main;
+    font-size: 16px;
+  }
+
+  span,
+  .field-help {
+    color: $text-secondary;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+}
+
+.field-help {
+  margin: 7px 0 0;
+  color: $text-secondary;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .avatar-preview {
@@ -649,8 +753,14 @@ const formatMonth = (dateStr) => {
   }
 
   .avatar-editor {
+    padding: 0 0 18px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(102, 194, 138, 0.18);
+  }
+
+  .profile-editor-layout {
     grid-template-columns: 1fr;
-    justify-items: center;
+    gap: 20px;
   }
 
   .avatar-actions {

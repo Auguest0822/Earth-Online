@@ -326,3 +326,213 @@ GDELT
 - 数据库设计文档：`docs/database.md`
 
 本文档仅作为后续开发路线，不代表当前功能已经实现。
+
+## 11. 聚合数据“新闻头条”接入流程
+
+本项目当前计划使用聚合数据的“新闻头条”接口作为地球动态的真实新闻来源。官方接口返回新闻标题、发布时间、分类、来源、原文链接和缩略图等字段；接口支持按新闻分类查询。具体字段和参数以[聚合数据官方接口文档](https://www.juhe.cn/docs/download/pdf/235?aids=923)为准。
+
+### 11.1 总体调用链路
+
+```text
+聚合数据 APPKey
+      ↓（只放在后端环境变量）
+Spring Boot NewsClient
+      ↓
+NewsService：参数转换、字段标准化、缓存、错误处理
+      ↓
+GET /api/news?category=all
+      ↓
+Vue EarthView.vue
+      ↓
+分类筛选、热点新闻、来源和更新时间
+```
+
+不要让 Vue 直接请求聚合数据。若 APPKey 写入前端代码或浏览器请求地址，用户可以在开发者工具中看到并盗用密钥。前端只请求自己的 Spring Boot `/api/news`，由后端代为调用第三方接口。
+
+### 11.2 当前分类映射
+
+页面显示名称与聚合数据 `type` 参数对应如下：
+
+| 页面分类 | `type` 参数 |
+|---|---|
+| 全部 | `top` |
+| 国际 | `guoji` |
+| 国内 | `guonei` |
+| 科技 | `keji` |
+| 健康 | `jiankang` |
+| 财经 | `caijing` |
+| 军事 | `junshi` |
+| 娱乐 | `yule` |
+
+`全部`不是把所有分类分别请求一遍，而是先使用聚合数据的 `top`（头条）分类，避免一次刷新消耗多次配额。后续如果确实需要“全部分类合并”，再设计后台定时任务统一采集。
+
+### 11.3 APPKey 的安全配置
+
+不要把真实 APPKey 提交到 Git，也不要写入 `application.yaml` 的明文值。开发环境推荐使用环境变量：
+
+```powershell
+$env:JUHE_NEWS_KEY = "你的聚合数据APPKey"
+```
+
+然后从同一个 PowerShell 窗口启动 Spring Boot。若从 IntelliJ IDEA 启动，则在：
+
+```text
+Run → Edit Configurations → BackendApplication → Environment variables
+```
+
+增加：
+
+```text
+JUHE_NEWS_KEY=你的聚合数据APPKey
+```
+
+`application.yaml` 只保存配置读取规则：
+
+```yaml
+juhe:
+  news:
+    base-url: https://v.juhe.cn/toutiao/index
+    key: ${JUHE_NEWS_KEY:}
+    cache-minutes: 10
+```
+
+如果密钥为空，后端应返回清晰的配置错误，并让前端降级到 Mock，而不是把空密钥反复请求第三方接口。
+
+### 11.4 后端实现顺序
+
+按下面顺序实现，每一步完成后再测试：
+
+1. 创建 `news` 业务包和统一 `NewsItem`、`NewsResponse` DTO。
+2. 创建 `JuheNewsClient`，使用 Spring `RestClient` 调用 `https://v.juhe.cn/toutiao/index`。
+3. 传入 `key`、`type`、`page=1`、`page_size` 等参数，并设置连接和读取超时。
+4. 检查聚合数据返回的 `error_code`；只有 `error_code=0` 才处理 `result.data`。
+5. 将第三方字段转换为前端统一结构：
+
+   ```json
+   {
+     "id": "uniquekey",
+     "title": "title",
+     "summary": "title",
+     "source": "author_name",
+     "sourceUrl": "url",
+     "imageUrl": "thumbnail_pic_s",
+     "category": "category",
+     "publishedAt": "date"
+   }
+   ```
+
+6. 创建 `NewsService`，负责分类转换、去重、缓存和统一响应。
+7. 创建 `NewsController`：`GET /api/news?category=all`。
+8. 在 `SecurityConfig` 中确认新闻接口的访问策略。当前地球动态属于登录后的页面，建议先要求 JWT；若以后要允许未登录浏览，再单独放行 `/api/news/**`。
+9. 暂时不把新闻写入数据库，先使用 10 分钟内存缓存。这样可以减少重复请求，适配免费调用额度。
+
+### 11.5 统一响应建议
+
+后端不要直接把聚合数据原始 JSON 原样交给页面，建议返回前端已经使用的结构：
+
+```json
+{
+  "events": [],
+  "featured": null,
+  "categoryStats": [],
+  "regionStats": [],
+  "trends": [],
+  "meta": {
+    "sourceMode": "juhe",
+    "sources": ["聚合数据"],
+    "updatedAt": "2026-08-08T12:00:00+08:00",
+    "cached": true,
+    "dataStatus": "normal"
+  }
+}
+```
+
+聚合数据新闻头条接口通常没有项目页面所需的完整摘要，因此第一版可以暂时使用标题作为 `summary`，详情页通过 `sourceUrl` 跳转到原文。不要伪造新闻正文。
+
+### 11.6 测试流程
+
+#### 第一步：直接测试 APPKey
+
+在 PowerShell 中执行（将分类和页数控制得很小）：
+
+```powershell
+$key = $env:JUHE_NEWS_KEY
+Invoke-RestMethod "https://v.juhe.cn/toutiao/index?key=$key&type=top&page=1&page_size=3"
+```
+
+检查：
+
+- `error_code` 是否为 `0`；
+- `result.data` 是否有数据；
+- 每条数据是否包含 `title`、`date`、`author_name`、`url`；
+- `thumbnail_pic_s` 为空时页面是否仍能显示默认图片。
+
+#### 第二步：测试 Spring Boot 代理
+
+启动后端并先登录获取 JWT，再请求：
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://localhost:8080/api/news?category=all" `
+  -Headers @{ Authorization = "Bearer $token" }
+```
+
+检查返回是否包含 `events` 和 `meta.sourceMode=juhe`。如果后端日志显示第三方错误，先不要改前端，先解决后端配置、密钥或网络问题。
+
+#### 第三步：测试每个分类
+
+依次测试：
+
+```text
+all、guoji、guonei、keji、jiankang、caijing、junshi、yule
+```
+
+页面分类按钮应改变请求参数，并且 Network 面板中的 `/api/news?category=...` 返回 200。
+
+#### 第四步：测试前端 API 模式
+
+在 `web/.env.local` 设置：
+
+```env
+VITE_NEWS_DATA_SOURCE=api
+```
+
+重启 Vite（修改 `.env` 后必须重启），打开“地球动态”，确认：
+
+- 数据来源显示“聚合数据”；
+- 点击刷新后能看到真实新闻；
+- 切换分类会重新请求；
+- 关闭后端或暂时填错密钥时，页面显示可读的错误或 Mock 降级，不出现白屏。
+
+### 11.7 免费额度和缓存规则
+
+聚合数据普通会员页面显示新闻头条每天有调用次数限制，实际额度和限制以账号后台及官方页面为准。[官方产品页](https://www.juhe.cn/docs/o1)显示普通会员为每天 50 次，因此开发时不能把每次页面进入、每个分类切换都直接转发给第三方。
+
+第一版规则：
+
+- 后端按分类缓存 10 分钟；
+- 同一分类命中缓存时不调用聚合数据；
+- 前端刷新按钮只刷新本项目缓存，不提供“强制绕过缓存”功能；
+- 开发测试优先使用 Mock；需要验证真实接口时再切换 `api`；
+- 第三方失败时保留上一份缓存或降级 Mock。
+
+### 11.8 常见问题
+
+| 现象 | 优先检查 |
+|---|---|
+| 返回 `403` | JWT 是否过期、后端是否正在运行、SecurityConfig 是否拦截了接口 |
+| 返回聚合数据错误码 | APPKey、分类参数、额度和接口地址 |
+| 前端仍显示 Mock | `VITE_NEWS_DATA_SOURCE` 是否为 `api`，修改后是否重启 Vite |
+| 图片空白 | `thumbnail_pic_s` 可能为空，使用默认图片和 `@error` 处理 |
+| 中文乱码 | 后端响应 `Content-Type` 使用 UTF-8，PowerShell 可用 `ConvertTo-Json` 检查 |
+| 请求次数很快用完 | 是否关闭了后端缓存，或每个分类切换都直接请求第三方 |
+
+### 11.9 当前阶段验收标准
+
+- [ ] APPKey 只存在于环境变量或 IDEA 运行配置中；
+- [ ] `/api/news?category=all` 能返回统一结构；
+- [ ] 至少测试 `all`、`科技`、`国际` 三个分类；
+- [ ] 前端 API 模式能显示聚合数据新闻；
+- [ ] 关闭第三方接口后页面仍能 Mock 降级；
+- [ ] 后端有 10 分钟缓存，不会一次刷新产生多次外部请求；
+- [ ] 文档、代码和 Git 中没有真实 APPKey。

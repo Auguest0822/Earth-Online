@@ -163,7 +163,7 @@ const selectedMood = ref(moods[0])
 
 const now = new Date()
 const greeting = computed(() => now.getHours() < 12 ? '早上好' : now.getHours() < 18 ? '下午好' : '晚上好')
-const displayName = computed(() => (profileStore.userInfo?.nickname || '地球居民').replace(/🌱/g, '').trim())
+const displayName = computed(() => (profileStore.userInfo?.username || '地球居民').replace(/🌱/g, '').trim())
 const todayText = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
 const weekdayText = now.toLocaleDateString('zh-CN', { weekday: 'long' })
 const recentRecords = computed(() => profileStore.timelines.slice(0, 3))
