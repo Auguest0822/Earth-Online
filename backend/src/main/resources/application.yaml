@@ -19,5 +19,15 @@ jwt:
   secret: earth-online-development-secret-key-please-change-123456
   expiration-ms: 86400000
 
+juhe:
+  news:
+    base-url: https://v.juhe.cn/toutiao/index
+    key: ${JUHE_NEWS_KEY:}
+    cache-minutes: 10
+
+gnews:
+  base-url: https://gnews.io/api/v4/top-headlines
+  key: ${GNEWS_API_KEY:}
+
 server:
   port: 8080

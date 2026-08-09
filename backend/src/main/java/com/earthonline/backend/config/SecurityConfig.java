@@ -7,7 +7,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.http.HttpMethod;
+import jakarta.servlet.http.HttpServletRequest;
 
 @Configuration
 public class SecurityConfig {
@@ -32,15 +32,7 @@ public class SecurityConfig {
                         )
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers(
-                                "/api/auth/me"
-                        ).authenticated()
-                        .requestMatchers(
-                                "/api/health",
-                                "/api/auth/login",
-                                "/api/auth/register"
-                        ).permitAll()
+                        .requestMatchers(this::isPublicRequest).permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(
@@ -49,5 +41,15 @@ public class SecurityConfig {
                 );
 
         return http.build();
+    }
+
+    private boolean isPublicRequest(HttpServletRequest request) {
+        String method = request.getMethod();
+        String uri = request.getRequestURI();
+
+        return "OPTIONS".equals(method)
+                || ("GET".equals(method) && "/api/health".equals(uri))
+                || ("POST".equals(method) && "/api/auth/login".equals(uri))
+                || ("POST".equals(method) && "/api/auth/register".equals(uri));
     }
 }

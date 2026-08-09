@@ -536,3 +536,93 @@ VITE_NEWS_DATA_SOURCE=api
 - [ ] 关闭第三方接口后页面仍能 Mock 降级；
 - [ ] 后端有 10 分钟缓存，不会一次刷新产生多次外部请求；
 - [ ] 文档、代码和 Git 中没有真实 APPKey。
+
+## 12. GNews 接入与双数据源降级
+
+### 12.1 使用目的
+
+聚合数据新闻头条适合中文分类新闻，但部分结果没有可用图片，也不稳定提供摘要。GNews 返回的文章通常包含 title、description、image、url、publishedAt 和 source.name，更适合当前“地球动态”的轮播图和新闻卡片展示。
+
+第一版采用以下优先级：
+
+    GNews（优先：摘要和图片）
+          ↓ 失败、未配置或无可展示结果
+    聚合数据（后备：中文分类新闻）
+          ↓ 两者都失败
+    前端 Mock 数据
+
+### 12.2 环境变量配置
+
+两个第三方 Key 都只能配置在后端运行环境中，不能提交到 Git，也不能放到 Vue 前端。
+
+在 IntelliJ IDEA 中打开：
+
+    BackendApplication ▼
+    → Edit Configurations
+    → 选择 BackendApplication
+    → 修改选项
+    → 勾选“环境变量”
+
+点击环境变量右侧的省略号，增加：
+
+    GNEWS_API_KEY=你的GNews_API_Key
+    JUHE_NEWS_KEY=你的聚合数据APPKey
+
+保存后必须停止并重新启动 Spring Boot，环境变量才会生效。
+
+application.yaml 只保留读取规则：
+
+    gnews:
+      base-url: https://gnews.io/api/v4/top-headlines
+      key: ${GNEWS_API_KEY:}
+
+    juhe:
+      news:
+        key: ${JUHE_NEWS_KEY:}
+        cache-minutes: 10
+
+### 12.3 当前分类映射
+
+| 页面分类 | GNews 分类 | 聚合数据分类 |
+|---|---|---|
+| 全部 | general | top |
+| 国际 | world | guoji |
+| 国内 | nation | guonei |
+| 科技 | technology | keji |
+| 健康 | health | jiankang |
+| 财经 | business | caijing |
+| 军事 | general | junshi |
+| 娱乐 | entertainment | yule |
+
+GNews 没有独立军事分类，因此军事分类会先尝试 GNews 的通用新闻；以后可改为 GNews 搜索接口加军事关键词，或直接优先使用聚合数据的 junshi。
+
+### 12.4 页面展示降级
+
+不依赖第三方接口保证每条新闻都有图片或摘要。前端应统一处理：
+
+- image 为空或加载失败：显示项目内置 EARTH PULSE 占位图；
+- description 为空，或与 title 完全相同：不重复展示，改为“点击阅读原文查看新闻详情”；
+- 原文地址存在：在新标签页打开原文；
+- 任何一个数据源失败：页面仍保留可读的提示与 Mock 降级。
+
+### 12.5 测试步骤
+
+1. 在 IDEA 运行配置中设置两个环境变量；
+2. Build → Rebuild Project，完全重启 BackendApplication；
+3. 登录并保存最新 JWT：
+
+       $token = $loginResult.accessToken
+
+4. 请求新闻接口：
+
+       $newsResult = Invoke-RestMethod `
+         -Uri "http://localhost:8080/api/news?category=all" `
+         -Headers @{ Authorization = "Bearer $token" }
+
+       $newsResult.meta | ConvertTo-Json
+       $newsResult.events[0] | ConvertTo-Json
+
+5. 预期 meta.sources 为 GNews，第一条新闻应尽量包含非空的 summary 和 image；
+6. 再次请求相同分类，检查 meta.cached=true；
+7. 浏览器登录后进入“地球动态”，选择“后端接口”，检查 Network 中 /api/news 状态为 200；
+8. 临时删除 GNEWS_API_KEY 并重启后端，验证 meta.sources 回退为“聚合数据”。

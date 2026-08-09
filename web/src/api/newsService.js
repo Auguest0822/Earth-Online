@@ -73,19 +73,8 @@ const fallbackNews = [
   }
 ]
 
-const readJson = async (url) => {
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error(`News request failed: ${response.status}`)
-  }
-  return response.json()
-}
-
 const loadFromConfiguredBackend = async (category) => {
-  const backendUrl = import.meta.env.VITE_NEWS_BACKEND_URL || '/api'
-
-  const params = new URLSearchParams({ category })
-  return readJson(`${backendUrl.replace(/\/$/, '')}/news?${params.toString()}`)
+  return request('/news', { params: { category } })
 }
 
 const buildStats = (items, field, fallbackName) => {
@@ -187,3 +176,4 @@ export const fetchEarthNews = async ({ category = 'all', source = getNewsDataSou
 
   return buildFallbackPayload()
 }
+import { request } from './httpClient'

@@ -22,11 +22,25 @@
     </header>
 
     <section v-if="featured" class="featured-card module-card">
-      <img :src="featured.image" :alt="featured.title" />
+      <div class="carousel-frame">
+        <img :src="featured.image || fallbackImage" :alt="featured.title" @error="replaceBrokenImage" />
+        <button class="carousel-arrow prev" aria-label="上一条新闻" @click="showPrevious">‹</button>
+        <button class="carousel-arrow next" aria-label="下一条新闻" @click="showNext">›</button>
+        <div class="carousel-dots" aria-label="轮播新闻切换">
+          <button
+            v-for="(_, index) in carouselItems"
+            :key="index"
+            :class="{ active: index === carouselIndex }"
+            :aria-label="`第 ${index + 1} 条新闻`"
+            @click="carouselIndex = index"
+          />
+        </div>
+      </div>
       <div class="featured-content">
         <span class="category">{{ featured.category }}</span>
         <h3>{{ featured.title }}</h3>
-        <p>{{ featured.summary }}</p>
+        <p v-if="featured.summary && featured.summary !== featured.title">{{ featured.summary }}</p>
+        <p v-else class="article-hint">点击“阅读原文”查看新闻详情。</p>
         <div class="article-meta">
           <span>{{ featured.source }}</span>
           <span>{{ featured.region }}</span>
@@ -59,14 +73,15 @@
 
         <div v-loading="loading" class="news-list">
           <article v-for="item in visibleNews" :key="item.id" class="news-item">
-            <img :src="item.image" :alt="item.title" loading="lazy" />
+            <img :src="item.image || fallbackImage" :alt="item.title" loading="lazy" @error="replaceBrokenImage" />
             <div>
               <div class="news-tags">
                 <span>{{ item.category }}</span>
                 <span>{{ item.region }}</span>
               </div>
               <h4 @click="openArticle(item)">{{ item.title }}</h4>
-              <p>{{ item.summary }}</p>
+              <p v-if="item.summary && item.summary !== item.title">{{ item.summary }}</p>
+              <p v-else class="article-hint">点击标题查看新闻详情。</p>
               <div class="article-meta">
                 <span>{{ item.source }}</span>
                 <span>{{ formatTime(item.publishedAt) }}</span>
@@ -82,52 +97,33 @@
       </section>
 
       <aside class="insight-column">
-        <section class="module-card stats-card">
+        <section class="module-card focus-card">
           <div class="panel-heading compact">
             <div>
-              <p>按本次新闻统计</p>
-              <h3>分类关注度</h3>
+              <p>EARTH PULSE</p>
+              <h3>今日焦点</h3>
             </div>
-            <el-icon><DataAnalysis /></el-icon>
+            <el-icon><InfoFilled /></el-icon>
           </div>
-          <div class="stat-list">
-            <div v-for="item in categoryStats" :key="item.name" class="stat-item">
-              <div><span>{{ item.name }}</span><strong>{{ item.count }} 条</strong></div>
-              <div class="bar"><i :style="{ width: `${item.percentage}%` }"></i></div>
-            </div>
+          <div class="focus-list">
+            <div><span>数据来源</span><strong>{{ sourceLabel }}</strong></div>
+            <div><span>当前分类</span><strong>{{ currentCategoryLabel }}</strong></div>
+            <div><span>新闻数量</span><strong>{{ news.length }} 条</strong></div>
+            <div><span>最近更新</span><strong>{{ updatedText.replace('更新于 ', '') }}</strong></div>
           </div>
+          <el-button class="focus-refresh" plain type="success" :loading="loading" @click="loadNews">刷新新闻</el-button>
         </section>
 
-        <section class="module-card stats-card">
+        <section class="module-card tips-card">
           <div class="panel-heading compact">
-            <div>
-              <p>按新闻地区字段统计</p>
-              <h3>新闻地区分布</h3>
-            </div>
-            <el-icon><LocationInformation /></el-icon>
+            <div><p>READING GUIDE</p><h3>阅读提示</h3></div>
+            <el-icon><Reading /></el-icon>
           </div>
-          <div class="region-list">
-            <div v-for="(item, index) in regionStats" :key="item.name" class="region-item">
-              <span class="rank">{{ index + 1 }}</span>
-              <span class="region-name">{{ item.name }}</span>
-              <div class="mini-bar"><i :style="{ width: `${item.percentage}%` }"></i></div>
-              <strong>{{ item.count }} 条</strong>
-            </div>
-          </div>
-        </section>
-
-        <section class="module-card data-card">
-          <div class="panel-heading compact">
-            <div><h3>数据说明</h3></div>
-            <el-tag :type="statusType" effect="light">{{ statusText }}</el-tag>
-          </div>
-          <dl>
-            <div><dt>数据来源</dt><dd>{{ sourceLabel }}</dd></div>
-            <div><dt>更新时间</dt><dd>{{ exactUpdatedText }}</dd></div>
-            <div><dt>更新频率</dt><dd>每 {{ meta.cacheMinutes || 10 }} 分钟</dd></div>
-            <div><dt>缓存状态</dt><dd>{{ meta.cached ? '使用缓存' : '刚刚同步' }}</dd></div>
-          </dl>
-          <p class="data-note">{{ dataNote }}</p>
+          <ul class="tips-list">
+            <li>点击新闻标题或“阅读原文”查看来源页面。</li>
+            <li>切换分类可以浏览不同主题的地球动态。</li>
+            <li>接口暂时不可用时，页面会显示演示数据。</li>
+          </ul>
         </section>
       </aside>
     </div>
@@ -154,15 +150,18 @@ const selectedCategory = ref('all')
 const dataSource = ref(getNewsDataSource())
 const loading = ref(false)
 const news = ref([])
-const categoryStats = ref([])
-const regionStats = ref([])
 const meta = ref({})
 const visibleCount = ref(4)
+const carouselIndex = ref(0)
 let refreshTimer
+let carouselTimer
+const fallbackImage = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22900%22 height=%22520%22 viewBox=%220 0 900 520%22%3E%3Crect width=%22900%22 height=%22520%22 fill=%22%23eef8f0%22/%3E%3Ccircle cx=%22450%22 cy=%22225%22 r=%2286%22 fill=%22%23b5dfc2%22/%3E%3Cpath d=%22M365 225h170M450 140v170%22 stroke=%22%23fff%22 stroke-width=%2218%22 stroke-linecap=%22round%22/%3E%3Ctext x=%22450%22 y=%22380%22 text-anchor=%22middle%22 fill=%22%235d9f70%22 font-family=%22Arial%22 font-size=%2230%22%3EEARTH PULSE%3C/text%3E%3C/svg%3E'
 
-const featured = computed(() => news.value[0])
+const carouselItems = computed(() => news.value.slice(0, 5))
+const featured = computed(() => carouselItems.value[carouselIndex.value] || news.value[0])
 const visibleNews = computed(() => news.value.slice(1, visibleCount.value + 1))
 const sourceLabel = computed(() => meta.value.sources?.join(' + ') || '本地演示数据')
+const currentCategoryLabel = computed(() => categories.find((item) => item.value === selectedCategory.value)?.label || '全部')
 const statusText = computed(() => meta.value.dataStatus === 'error'
   ? '接口异常'
   : meta.value.dataStatus === 'fallback' ? '演示模式' : '数据正常')
@@ -176,9 +175,6 @@ const updatedDate = computed(() => {
 const updatedText = computed(() => updatedDate.value
   ? `更新于 ${updatedDate.value.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
   : '等待同步')
-const exactUpdatedText = computed(() => updatedDate.value
-  ? updatedDate.value.toLocaleString('zh-CN', { hour12: false })
-  : '尚未更新')
 
 const formatTime = (value) => {
   const date = new Date(value)
@@ -197,15 +193,25 @@ const openArticle = (item) => {
   ElMessage.info('当前是演示新闻，暂无外部原文链接')
 }
 
+const replaceBrokenImage = (event) => {
+  if (event.target.src !== fallbackImage) event.target.src = fallbackImage
+}
+
+const showNext = () => {
+  if (carouselItems.value.length) carouselIndex.value = (carouselIndex.value + 1) % carouselItems.value.length
+}
+const showPrevious = () => {
+  if (carouselItems.value.length) carouselIndex.value = (carouselIndex.value - 1 + carouselItems.value.length) % carouselItems.value.length
+}
+
 const loadNews = async () => {
   loading.value = true
   try {
     const data = await fetchEarthNews({ category: selectedCategory.value, source: dataSource.value })
     news.value = data.events || []
-    categoryStats.value = data.categoryStats || []
-    regionStats.value = data.regionStats || []
     meta.value = data.meta || {}
     visibleCount.value = 4
+    carouselIndex.value = 0
   } finally {
     loading.value = false
   }
@@ -220,8 +226,12 @@ watch(selectedCategory, loadNews)
 onMounted(() => {
   loadNews()
   refreshTimer = window.setInterval(loadNews, 10 * 60 * 1000)
+  carouselTimer = window.setInterval(showNext, 5000)
 })
-onBeforeUnmount(() => window.clearInterval(refreshTimer))
+onBeforeUnmount(() => {
+  window.clearInterval(refreshTimer)
+  window.clearInterval(carouselTimer)
+})
 </script>
 
 <style lang="scss" scoped>
@@ -236,7 +246,15 @@ onBeforeUnmount(() => window.clearInterval(refreshTimer))
 .sync-summary { display: flex; align-items: center; gap: 14px; color: $text-secondary; font-size: 12px; }
 .source-select { width: 118px; }
 .featured-card { display: grid; grid-template-columns: 38% minmax(0,1fr); gap: 24px; padding: 14px; }
-.featured-card > img { width: 100%; height: 210px; object-fit: cover; border-radius: 12px; }
+.carousel-frame { position: relative; min-width: 0; }
+.carousel-frame > img { width: 100%; height: 210px; object-fit: cover; border-radius: 12px; }
+.carousel-arrow { position: absolute; top: 50%; width: 32px; height: 32px; border: 0; border-radius: 50%; color: #fff; background: rgba(0,0,0,.35); font-size: 24px; line-height: 28px; cursor: pointer; transform: translateY(-50%); }
+.carousel-arrow:hover { background: rgba(0,0,0,.58); }
+.carousel-arrow.prev { left: 12px; }
+.carousel-arrow.next { right: 12px; }
+.carousel-dots { position: absolute; right: 0; bottom: 12px; left: 0; display: flex; justify-content: center; gap: 6px; }
+.carousel-dots button { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 50%; background: rgba(255,255,255,.65); cursor: pointer; }
+.carousel-dots button.active { width: 20px; border-radius: 999px; background: #fff; }
 .featured-content { padding: 10px 12px 10px 0; }
 .featured-content h3 { margin: 10px 0; color: $text-main; font-size: 24px; line-height: 1.4; }
 .featured-content p { margin: 0 0 14px; color: $text-regular; line-height: 1.75; }
@@ -261,6 +279,13 @@ onBeforeUnmount(() => window.clearInterval(refreshTimer))
 .news-tags { display: flex; gap: 8px; color: $primary-color; font-size: 12px; }
 .load-more { width: 100%; padding: 11px; border: 0; border-radius: 10px; color: $primary-color; background: rgba(102,194,138,.08); cursor: pointer; }
 .insight-column { display: flex; flex-direction: column; gap: 20px; }
+.focus-list { display: flex; flex-direction: column; gap: 13px; }
+.focus-list > div { display: flex; justify-content: space-between; gap: 12px; color: $text-secondary; font-size: 13px; }
+.focus-list strong { color: $text-main; font-weight: 500; text-align: right; }
+.focus-refresh { width: 100%; margin-top: 18px; }
+.tips-list { display: flex; flex-direction: column; gap: 13px; margin: 0; padding: 0; list-style: none; color: $text-regular; font-size: 13px; line-height: 1.65; }
+.tips-list li { position: relative; padding-left: 16px; }
+.tips-list li::before { position: absolute; top: .6em; left: 0; width: 6px; height: 6px; border-radius: 50%; background: $primary-color; content: ''; }
 .stat-list { display: flex; flex-direction: column; gap: 15px; }
 .stat-item > div:first-child { display: flex; justify-content: space-between; margin-bottom: 7px; color: $text-regular; font-size: 13px; }
 .stat-item strong { color: $primary-color; }
