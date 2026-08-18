@@ -9,5 +9,7 @@ public interface UserRepository
 
     boolean existsByUsername(String username);
 
+    boolean existsByPublicId(String publicId);
+
     Optional<UserEntity> findByUsername(String username);
 }

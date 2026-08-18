@@ -1,5 +1,5 @@
 <template>
-  <div class="word-cloud-card module-card">
+  <div class="word-cloud-card module-card" :class="{ embedded }">
     <div class="module-header">
       <div class="title">
         <h3>关键词云</h3>
@@ -20,7 +20,11 @@
 
 <script setup>
 const props = defineProps({
-  keywords: Array
+  keywords: {
+    type: Array,
+    default: () => []
+  },
+  embedded: Boolean
 })
 
 // Simple fake word cloud generator
@@ -67,7 +71,7 @@ const getWordStyle = (item, index) => {
 
 .cloud-container {
   position: relative;
-  height: 150px;
+  height: clamp(180px, 22vw, 260px);
   width: 100%;
   overflow: hidden;
   
@@ -80,5 +84,13 @@ const getWordStyle = (item, index) => {
       opacity: 1 !important;
     }
   }
+}
+
+.word-cloud-card.embedded {
+  box-sizing: border-box;
+  min-height: clamp(330px, 30vw, 390px);
+  padding: clamp(18px, 2vw, 28px);
+  box-shadow: none;
+  background: #fafafa;
 }
 </style>

@@ -60,6 +60,7 @@ public class ProfileService {
     private UserResponse toResponse(UserEntity user) {
         return new UserResponse(
                 user.getId(),
+                user.getPublicId(),
                 user.getUsername(),
                 user.getEmail(),
                 storageService.getAvatarPreviewUrl(user.getUsername(), user.getAvatar()),

@@ -16,6 +16,9 @@ public record CreateRecordRequest(
 
         LocalDate date,
 
+        @Size(max = 32, message = "事件类型不能超过 32 个字符")
+        String eventType,
+
         @Size(max = 32, message = "心情格式不正确")
         String mood,
 

@@ -24,6 +24,7 @@ const saveUserInfo = (userInfo) => {
   if (typeof window === 'undefined') return
 
   const savedUserInfo = {
+    publicId: userInfo.publicId,
     avatar: userInfo.avatar,
     username: userInfo.username,
     email: userInfo.email,
@@ -134,10 +135,43 @@ const buildKeywordCloud = (timelines) => {
     .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name, 'zh-CN'))
 }
 
+const MOOD_SCORE_MAP = {
+  '😊': 9, '😌': 7, '🥰': 8, '🤔': 6, '🥳': 9, '😴': 4,
+  '😭': 3, '😤': 3, '😔': 3, '😱': 4, '😎': 8, '😶': 5,
+  '😡': 2, '😍': 8, '😳': 6, '🤩': 8
+}
+
+const buildEventsData = (timelines) => {
+  const counts = new Map()
+  timelines.forEach((timeline) => {
+    const type = String(timeline.eventType || '生活日常').trim() || '生活日常'
+    counts.set(type, (counts.get(type) || 0) + 1)
+  })
+  return [...counts.entries()].map(([name, value]) => ({ name, value }))
+}
+
+const buildMoodTrend = (timelines) => {
+  const grouped = new Map()
+  timelines.forEach((timeline) => {
+    const mood = timeline.mood || timeline.moods?.[0]
+    const score = MOOD_SCORE_MAP[mood]
+    const year = new Date(timeline.date).getFullYear()
+    if (!Number.isFinite(score) || Number.isNaN(year)) return
+    const current = grouped.get(year) || { total: 0, count: 0 }
+    current.total += score
+    current.count += 1
+    grouped.set(year, current)
+  })
+  return [...grouped.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([year, item]) => ({ year: String(year), score: Number((item.total / item.count).toFixed(1)) }))
+}
+
 const toRecordPayload = (timeline) => ({
   title: timeline.title || '',
   content: timeline.content,
   date: timeline.date,
+  eventType: timeline.eventType || '生活日常',
   mood: timeline.mood || timeline.moods?.[0] || '',
   keywords: timeline.keywords || [],
   // blob: 地址只适合本地预览；MinIO 上传完成后才会把真实 URL 放进 photos。
@@ -185,6 +219,7 @@ export const useProfileStore = defineStore('profile', {
           this.userInfo = {
             ...(this.userInfo || {}),
             id: user.id,
+            publicId: user.publicId,
             username: user.username,
             email: user.email,
             avatar: user.avatar,
@@ -192,8 +227,8 @@ export const useProfileStore = defineStore('profile', {
             birthDate: user.birthDate
           }
           this.timelines = (records.items || records).map(toTimeline).sort(sortTimelinesByDateDesc)
-          this.eventsData = []
-          this.moodTrend = []
+          this.eventsData = buildEventsData(this.timelines)
+          this.moodTrend = buildMoodTrend(this.timelines)
           this.keywords = buildKeywordCloud(this.timelines)
           this.futureLetters = []
           return { userInfo: this.userInfo, timelines: this.timelines }
@@ -243,6 +278,8 @@ export const useProfileStore = defineStore('profile', {
           const saved = await createRecord(toRecordPayload(timeline))
           this.timelines = this.timelines.map(item => item.id === payload.id ? toTimeline(saved) : item)
           this.keywords = buildKeywordCloud(this.timelines)
+          this.eventsData = buildEventsData(this.timelines)
+          this.moodTrend = buildMoodTrend(this.timelines)
         } catch (error) {
           if (source === 'api') this.timelines = this.timelines.filter(item => item.id !== payload.id)
           if (source === 'api') throw error
@@ -261,11 +298,15 @@ export const useProfileStore = defineStore('profile', {
         const saved = await updateRecord(timeline.id, toRecordPayload(timeline))
         this.timelines = this.timelines.map(item => item.id === timeline.id ? toTimeline(saved) : item)
         this.keywords = buildKeywordCloud(this.timelines)
+        this.eventsData = buildEventsData(this.timelines)
+        this.moodTrend = buildMoodTrend(this.timelines)
       }
     },
     async deleteTimeline(id) {
       this.timelines = this.timelines.filter(t => t.id !== id)
       this.keywords = buildKeywordCloud(this.timelines)
+      this.eventsData = buildEventsData(this.timelines)
+      this.moodTrend = buildMoodTrend(this.timelines)
       if (getAppDataSource() !== 'mock') await deleteRecord(id)
     },
     async updateUserInfo(userInfo) {

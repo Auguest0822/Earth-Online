@@ -9,6 +9,7 @@ public record RecordResponse(
         String title,
         String content,
         LocalDate date,
+        String eventType,
         String mood,
         List<String> keywords,
         List<String> photos,

@@ -13,6 +13,10 @@ public class UserEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Stable public ID for display and friend search. Internal relations keep using id. */
+    @Column(name = "public_id", unique = true, length = 10)
+    private String publicId;
+
     @Column(nullable = false, unique = true, length = 30)
     private String username;
 
@@ -51,6 +55,14 @@ public class UserEntity {
 
     public Long getId() {
         return id;
+    }
+
+    public String getPublicId() {
+        return publicId;
+    }
+
+    public void setPublicId(String publicId) {
+        this.publicId = publicId;
     }
 
     public String getUsername() {

@@ -10,6 +10,7 @@
         <h2>{{ profileStore.userInfo.username || '地球居民' }}</h2>
           <p>{{ profileStore.userInfo.slogan }}</p>
           <div class="identity-tags">
+            <span v-if="profileStore.userInfo.publicId">地球 ID · {{ profileStore.userInfo.publicId }}</span>
             <span>{{ displayInfo.survivalDuration }}</span>
             <span>{{ profileStore.userInfo.birthDate }}</span>
           </div>

@@ -51,6 +51,7 @@ public class RecordService {
                 LocalDateTime.now(),
                 userId,
                 request.date() == null ? LocalDate.now() : request.date(),
+                normalizeEventType(request.eventType()),
                 request.mood(),
                 request.keywords(),
                 validatePhotoObjectKeys(username, request.photos())
@@ -83,6 +84,7 @@ public class RecordService {
         entity.setTitle(normalizeTitle(request.title(), request.content()));
         entity.setContent(request.content());
         entity.setRecordDate(request.date() == null ? entity.getRecordDate() : request.date());
+        entity.setEventType(normalizeEventType(request.eventType()));
         entity.setMood(request.mood());
         entity.setKeywords(request.keywords());
         entity.setPhotos(validatePhotoObjectKeys(username, request.photos()));
@@ -122,6 +124,7 @@ public class RecordService {
                 entity.getTitle(),
                 entity.getContent(),
                 entity.getRecordDate(),
+                entity.getEventType(),
                 entity.getMood(),
                 List.copyOf(entity.getKeywords()),
                 entity.getPhotos().stream()
@@ -168,5 +171,9 @@ public class RecordService {
         return normalizedContent.length() <= 30
                 ? normalizedContent
                 : normalizedContent.substring(0, 30) + "…";
+    }
+
+    private String normalizeEventType(String eventType) {
+        return eventType == null || eventType.isBlank() ? "生活日常" : eventType.trim();
     }
 }

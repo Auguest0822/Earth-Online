@@ -148,7 +148,7 @@
     <el-dialog
       :title="dialogType === 'create' ? '新增时间轴' : '编辑时间轴'"
       v-model="dialogVisible"
-      width="760px"
+      width="min(94vw, 1040px)"
       class="record-dialog"
     >
       <div class="record-stage" :style="{ backgroundImage: `url(${recordBanner})` }">
@@ -162,6 +162,11 @@
         <el-form-item label="日期" prop="date">
           <el-date-picker v-model="formData.date" type="date" value-format="YYYY-MM-DD" disabled />
         </el-form-item>
+        <el-form-item label="事件类型" prop="eventType">
+          <el-select v-model="formData.eventType" class="event-type-select" placeholder="请选择事件类型">
+            <el-option v-for="type in eventTypeOptions" :key="type" :label="type" :value="type" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="事记" prop="content">
           <div class="content-input-wrap">
             <el-input
@@ -169,6 +174,8 @@
               type="textarea"
               placeholder="说说今天发生了什么"
               :maxlength="1500"
+              :show-word-limit="true"
+              @update:model-value="limitContentLength"
               rows="6"
             />
             <span class="content-counter">{{ formData.content.length }} / 1500 字</span>
@@ -272,6 +279,8 @@ const openDetail = (item) => {
 }
 const moodOptions = ['😊', '😌', '🥰', '🤔', '🥳', '😴', '😢', '😤', '😔', '😰', '😎', '😶', '😡', '😍', '😳', '🤩']
 
+const eventTypeOptions = ['生活日常', '学习成长', '工作 / 学业', '健康运动', '旅行探索', '人际关系', '其他']
+
 const parseDateParts = (dateStr) => {
   const date = new Date(dateStr)
   if (Number.isNaN(date.getTime())) return null
@@ -334,6 +343,7 @@ const dialogType = ref('create') // 'create' or 'edit'
 const formData = reactive({
   id: '',
   date: '',
+  eventType: '生活日常',
   content: '',
   keywords: [],
   mood: '',
@@ -344,8 +354,19 @@ const formData = reactive({
 const keywordInput = ref('')
 const formRef = ref(null)
 
+// maxlength 会限制正常键盘输入；这里额外处理粘贴内容，确保任何输入方式都不能超过 1500 字。
+const limitContentLength = (value) => {
+  const content = String(value ?? '')
+  if (content.length > 1500) {
+    formData.content = content.slice(0, 1500)
+    return
+  }
+  formData.content = content
+}
+
 const rules = {
   date: [{ required: true, message: '请选择日期', trigger: 'change' }],
+  eventType: [{ required: true, message: '请选择事件类型', trigger: 'change' }],
   content: [{ required: true, message: '请输入事记内容', trigger: 'blur' }]
 }
 
@@ -354,6 +375,7 @@ const handleCreate = () => {
   Object.assign(formData, {
     id: '',
     date: getToday(),
+    eventType: '生活日常',
     content: '',
     keywords: [],
     mood: '',
@@ -369,6 +391,7 @@ const goHome = () => router.push('/')
 const handleEdit = (item) => {
   dialogType.value = 'edit'
   Object.assign(formData, JSON.parse(JSON.stringify(item)))
+  formData.eventType = item.eventType || '生活日常'
   formData.mood = item.moods?.[0] || ''
   formData.photos = (item.photos || []).map((preview, index) => ({
     preview,
@@ -778,6 +801,10 @@ const removePhoto = (index) => {
     border-radius: 10px;
     background: rgba(255, 255, 255, .88);
   }
+}
+
+.event-type-select {
+  width: min(100%, 320px);
 }
 
 .content-input-wrap {

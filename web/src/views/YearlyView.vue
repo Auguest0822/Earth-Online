@@ -24,19 +24,32 @@
         <span>关键词数量</span>
         <strong>{{ profileStore.keywords.length }}</strong>
       </div>
-      <div class="stat-card module-card">
+      <button type="button" class="stat-card module-card mood-stat-card" @click="moodScoreVisible = true">
         <span>平均心情</span>
         <strong>{{ averageMood }}</strong>
-      </div>
+        <small>查看分值说明</small>
+      </button>
     </div>
 
     <div class="analysis-grid">
       <DataAnalysis
         :eventsData="profileStore.eventsData"
         :moodTrend="profileStore.moodTrend"
+        :keywords="profileStore.keywords"
+        :timelines="profileStore.timelines"
       />
-      <WordCloudCard :keywords="profileStore.keywords" />
     </div>
+
+    <el-dialog v-model="moodScoreVisible" title="心情指数说明" width="min(92vw, 620px)">
+      <p class="score-dialog-intro">每条记录的 emoji 都对应固定分值。平均心情为所选年份内，所有已选择心情分值的平均数。</p>
+      <div class="mood-score-grid">
+        <div v-for="item in moodScores" :key="item.emoji" class="mood-score-item">
+          <span class="mood-emoji">{{ item.emoji }}</span>
+          <span>{{ item.label }}</span>
+          <strong>{{ item.score }} 分</strong>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -44,11 +57,22 @@
 import { computed, onMounted, ref } from 'vue'
 import { useProfileStore } from '@/stores/profile'
 import DataAnalysis from '@/components/Profile/DataAnalysis.vue'
-import WordCloudCard from '@/components/Profile/WordCloudCard.vue'
 
 const profileStore = useProfileStore()
 const selectedYear = ref('all')
+const moodScoreVisible = ref(false)
 const currentYear = new Date().getFullYear()
+const moodScores = [
+  { emoji: '😊', label: '开心', score: 9 }, { emoji: '😌', label: '平静', score: 7 },
+  { emoji: '🥰', label: '感恩', score: 8 }, { emoji: '🤔', label: '思考', score: 6 },
+  { emoji: '🥳', label: '兴奋', score: 9 }, { emoji: '😴', label: '疲惫', score: 4 },
+  { emoji: '😭', label: '难过', score: 3 }, { emoji: '😤', label: '烦躁', score: 3 },
+  { emoji: '😔', label: '低落', score: 3 }, { emoji: '😱', label: '紧张', score: 4 },
+  { emoji: '😎', label: '自信', score: 8 }, { emoji: '😶', label: '平淡', score: 5 },
+  { emoji: '😡', label: '生气', score: 2 }, { emoji: '😍', label: '心动', score: 8 },
+  { emoji: '😳', label: '惊讶', score: 6 }, { emoji: '🤩', label: '期待', score: 8 }
+]
+const moodScoreMap = new Map(moodScores.map((item) => [item.emoji, item.score]))
 
 const yearOptions = computed(() => {
   const years = new Set()
@@ -70,13 +94,16 @@ const filteredTimelines = computed(() => {
 })
 
 const averageMood = computed(() => {
-  if (!profileStore.moodTrend.length) return '0.0'
-  const total = profileStore.moodTrend.reduce((sum, item) => sum + item.score, 0)
-  return (total / profileStore.moodTrend.length).toFixed(1)
+  const scores = filteredTimelines.value
+    .map((item) => item.mood || item.moods?.[0])
+    .map((mood) => moodScoreMap.get(mood))
+    .filter((score) => Number.isFinite(score))
+  if (!scores.length) return '—'
+  return (scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1)
 })
 
 onMounted(() => {
-  profileStore.fetchMockTimelineData()
+  profileStore.fetchProfileData()
 })
 </script>
 
@@ -160,9 +187,56 @@ onMounted(() => {
   }
 }
 
+.mood-stat-card {
+  width: 100%;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  transition: transform .2s ease, box-shadow .2s ease;
+
+  small {
+    margin-top: 8px;
+    color: $primary-color;
+    font-size: 12px;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(82, 151, 105, .16);
+  }
+}
+
+.score-dialog-intro {
+  margin: 0 0 18px;
+  color: $text-regular;
+  line-height: 1.7;
+}
+
+.mood-score-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mood-score-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 12px;
+  border: 1px solid rgba(102, 194, 138, .2);
+  border-radius: 10px;
+  background: #f9fdf9;
+  color: $text-regular;
+  font-size: 13px;
+
+  .mood-emoji { font-size: 23px; }
+  strong { grid-column: 2; color: $primary-color; font-size: 13px; }
+}
+
 .analysis-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
   align-items: stretch;
 }
@@ -177,5 +251,9 @@ onMounted(() => {
   .analysis-grid {
     grid-template-columns: 1fr;
   }
+}
+
+@media (max-width: 560px) {
+  .mood-score-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 </style>

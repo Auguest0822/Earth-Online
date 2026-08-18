@@ -33,6 +33,9 @@ public class RecordEntity {
     @Column(length = 32)
     private String mood;
 
+    @Column(name = "event_type", length = 32)
+    private String eventType = "生活日常";
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "record_keywords", joinColumns = @JoinColumn(name = "record_id"))
     @Column(name = "keyword", length = 30)
@@ -52,6 +55,7 @@ public class RecordEntity {
             LocalDateTime createdAt,
             Long userId,
             LocalDate recordDate,
+            String eventType,
             String mood,
             List<String> keywords,
             List<String> photos
@@ -61,6 +65,7 @@ public class RecordEntity {
         this.createdAt = createdAt;
         this.userId = userId;
         this.recordDate = recordDate;
+        this.eventType = eventType;
         this.mood = mood;
         this.keywords = new ArrayList<>(keywords);
         this.photos = new ArrayList<>(photos);
@@ -107,6 +112,9 @@ public class RecordEntity {
 
     public String getMood() { return mood; }
     public void setMood(String mood) { this.mood = mood; }
+
+    public String getEventType() { return eventType; }
+    public void setEventType(String eventType) { this.eventType = eventType; }
 
     public List<String> getKeywords() { return keywords; }
     public void setKeywords(List<String> keywords) { this.keywords = new ArrayList<>(keywords); }

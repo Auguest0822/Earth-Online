@@ -20,17 +20,20 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final StorageService storageService;
+    private final PublicIdService publicIdService;
 
     public UserService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
-            StorageService storageService
+            StorageService storageService,
+            PublicIdService publicIdService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.storageService = storageService;
+        this.publicIdService = publicIdService;
     }
 
     public UserResponse register(RegisterRequest request) {
@@ -50,6 +53,7 @@ public class UserService {
                 request.email(),
                 LocalDateTime.now()
         );
+        user.setPublicId(publicIdService.generateUniquePublicId());
 
         UserEntity saved = userRepository.save(user);
 
@@ -102,6 +106,7 @@ public class UserService {
     private UserResponse toResponse(UserEntity user) {
         return new UserResponse(
                 user.getId(),
+                user.getPublicId(),
                 user.getUsername(),
                 user.getEmail(),
                 storageService.getAvatarPreviewUrl(user.getUsername(), user.getAvatar()),

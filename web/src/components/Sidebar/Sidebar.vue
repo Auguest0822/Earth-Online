@@ -16,7 +16,15 @@
         :class="{ active: isActive(item.path) }"
         @click="navigate(item.path)"
       >
-        <el-icon><component :is="item.icon" /></el-icon>
+        <el-icon v-if="item.icon === 'Friends'" class="friends-icon" viewBox="0 0 24 24">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="9" cy="8" r="3.1" fill="currentColor" />
+            <circle cx="16.7" cy="9.2" r="2.5" fill="currentColor" opacity=".78" />
+            <path d="M3.7 19.2c.15-3.38 2.34-5.45 5.3-5.45s5.14 2.07 5.3 5.45H3.7Z" fill="currentColor" />
+            <path d="M14.45 19.2c.05-2.06-.57-3.72-1.66-4.84 2.96-.54 5.32 1.06 5.5 4.84h-3.84Z" fill="currentColor" opacity=".78" />
+          </svg>
+        </el-icon>
+        <el-icon v-else><component :is="item.icon" /></el-icon>
         <span>{{ item.label }}</span>
       </div>
     </div>
@@ -36,7 +44,7 @@ const menuItems = [
   { path: '/timeline', label: '时间线', icon: 'Clock' },
   { path: '/yearly', label: '年度记录', icon: 'Calendar' },
   { path: '/future-letters', label: '写给未来', icon: 'MessageBox' },
-  { path: '/friends', label: '朋友', icon: 'UserFilled' },
+  { path: '/friends', label: '朋友', icon: 'Friends' },
   { path: '/profile', label: '我的地球档案', icon: 'User' }
 ]
 
@@ -105,6 +113,8 @@ const navigate = (path) => {
   .el-icon {
     font-size: 18px;
   }
+
+  .friends-icon svg { width: 1em; height: 1em; }
 
   &:hover {
     background-color: rgba(102, 194, 138, 0.1);
