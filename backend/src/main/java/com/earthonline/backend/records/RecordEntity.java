@@ -2,7 +2,10 @@ package com.earthonline.backend.records;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "records")
@@ -24,6 +27,22 @@ public class RecordEntity {
     @Column(name = "user_id")
     private Long userId;
 
+    @Column(name = "record_date", nullable = false)
+    private LocalDate recordDate;
+
+    @Column(length = 32)
+    private String mood;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "record_keywords", joinColumns = @JoinColumn(name = "record_id"))
+    @Column(name = "keyword", length = 30)
+    private List<String> keywords = new ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "record_photos", joinColumns = @JoinColumn(name = "record_id"))
+    @Column(name = "photo_url", length = 1000)
+    private List<String> photos = new ArrayList<>();
+
     public RecordEntity() {
     }
 
@@ -31,12 +50,20 @@ public class RecordEntity {
             String title,
             String content,
             LocalDateTime createdAt,
-            Long userId
+            Long userId,
+            LocalDate recordDate,
+            String mood,
+            List<String> keywords,
+            List<String> photos
     ) {
         this.title = title;
         this.content = content;
         this.createdAt = createdAt;
         this.userId = userId;
+        this.recordDate = recordDate;
+        this.mood = mood;
+        this.keywords = new ArrayList<>(keywords);
+        this.photos = new ArrayList<>(photos);
     }
 
     public Long getId() {
@@ -74,4 +101,16 @@ public class RecordEntity {
     public void setUserId(Long userId) {
         this.userId = userId;
     }
+
+    public LocalDate getRecordDate() { return recordDate; }
+    public void setRecordDate(LocalDate recordDate) { this.recordDate = recordDate; }
+
+    public String getMood() { return mood; }
+    public void setMood(String mood) { this.mood = mood; }
+
+    public List<String> getKeywords() { return keywords; }
+    public void setKeywords(List<String> keywords) { this.keywords = new ArrayList<>(keywords); }
+
+    public List<String> getPhotos() { return photos; }
+    public void setPhotos(List<String> photos) { this.photos = new ArrayList<>(photos); }
 }

@@ -112,6 +112,24 @@ const sortTimelinesByDateDesc = (a, b) => {
   return new Date(getTimelineDate(b)) - new Date(getTimelineDate(a))
 }
 
+const toRecordPayload = (timeline) => ({
+  title: timeline.title || '',
+  content: timeline.content,
+  date: timeline.date,
+  mood: timeline.mood || timeline.moods?.[0] || '',
+  keywords: timeline.keywords || [],
+  // blob: 地址只适合本地预览；MinIO 上传完成后才会把真实 URL 放进 photos。
+  photos: (timeline.photos || []).filter(photo => /^https?:\/\//.test(photo))
+})
+
+const toTimeline = (record) => ({
+  ...record,
+  date: record.date || record.createdAt || new Date().toISOString(),
+  moods: record.moods || (record.mood ? [record.mood] : []),
+  keywords: record.keywords || [],
+  photos: record.photos || []
+})
+
 export const useProfileStore = defineStore('profile', {
   state: () => ({
     userInfo: loadSavedUserInfo(),
@@ -141,10 +159,7 @@ export const useProfileStore = defineStore('profile', {
             slogan: user.slogan,
             birthDate: user.birthDate
           }
-          this.timelines = (records.items || records).map(record => ({
-            ...record,
-            date: record.date || record.createdAt || new Date().toISOString()
-          })).sort(sortTimelinesByDateDesc)
+          this.timelines = (records.items || records).map(toTimeline).sort(sortTimelinesByDateDesc)
           this.eventsData = []
           this.moodTrend = []
           this.keywords = []
@@ -193,8 +208,8 @@ export const useProfileStore = defineStore('profile', {
       this.timelines.sort(sortTimelinesByDateDesc)
       if (source !== 'mock') {
         try {
-          const saved = await createRecord(timeline)
-          this.timelines = this.timelines.map(item => item.id === payload.id ? saved : item)
+          const saved = await createRecord(toRecordPayload(timeline))
+          this.timelines = this.timelines.map(item => item.id === payload.id ? toTimeline(saved) : item)
         } catch (error) {
           if (source === 'api') this.timelines = this.timelines.filter(item => item.id !== payload.id)
           if (source === 'api') throw error
@@ -209,7 +224,10 @@ export const useProfileStore = defineStore('profile', {
         this.timelines[index] = { ...this.timelines[index], ...timeline }
         this.timelines.sort(sortTimelinesByDateDesc)
       }
-      if (getAppDataSource() !== 'mock') await updateRecord(timeline.id, timeline)
+      if (getAppDataSource() !== 'mock') {
+        const saved = await updateRecord(timeline.id, toRecordPayload(timeline))
+        this.timelines = this.timelines.map(item => item.id === timeline.id ? toTimeline(saved) : item)
+      }
     },
     async deleteTimeline(id) {
       this.timelines = this.timelines.filter(t => t.id !== id)

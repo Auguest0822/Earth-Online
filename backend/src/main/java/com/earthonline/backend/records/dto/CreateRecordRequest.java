@@ -3,13 +3,30 @@ package com.earthonline.backend.records.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+import java.time.LocalDate;
+import java.util.List;
+
 public record CreateRecordRequest(
-        @NotBlank(message = "标题不能为空")
-        @Size(max = 100, message = "标题不能超过100个字符")
+        @Size(max = 100, message = "标题不能超过 100 个字符")
         String title,
 
         @NotBlank(message = "内容不能为空")
-        @Size(max = 5000, message = "内容不能超过5000个字符")
-        String content
+        @Size(max = 5000, message = "内容不能超过 5000 个字符")
+        String content,
+
+        LocalDate date,
+
+        @Size(max = 32, message = "心情格式不正确")
+        String mood,
+
+        @Size(max = 5, message = "最多 5 个关键词")
+        List<@Size(max = 30, message = "关键词不能超过 30 个字符") String> keywords,
+
+        @Size(max = 9, message = "每条记录最多 9 张图片")
+        List<@Size(max = 1000, message = "图片地址过长") String> photos
 ) {
+    public CreateRecordRequest {
+        keywords = keywords == null ? List.of() : List.copyOf(keywords);
+        photos = photos == null ? List.of() : List.copyOf(photos);
+    }
 }

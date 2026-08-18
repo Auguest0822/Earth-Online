@@ -49,4 +49,22 @@ const route = useRoute()
   padding: 0 32px 32px 32px;
   overflow-y: auto;
 }
+
+@media (max-width: 1280px) {
+  .content-body {
+    padding: 0 24px 24px;
+  }
+}
+
+@media (max-width: 900px) {
+  .content-body {
+    padding: 0 18px 18px;
+  }
+}
+
+@media (max-width: 640px) {
+  .content-body {
+    padding: 0 12px 16px;
+  }
+}
 </style>

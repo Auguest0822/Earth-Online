@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -41,10 +42,14 @@ public class RecordService {
         Long userId = requireUserId(username);
 
         RecordEntity entity = new RecordEntity(
-                request.title(),
+                normalizeTitle(request.title(), request.content()),
                 request.content(),
                 LocalDateTime.now(),
-                userId
+                userId,
+                request.date() == null ? LocalDate.now() : request.date(),
+                request.mood(),
+                request.keywords(),
+                request.photos()
         );
 
         return toResponse(recordRepository.save(entity));
@@ -71,8 +76,12 @@ public class RecordService {
                 .findByIdAndUserId(id, userId)
                 .orElseThrow(() -> recordNotFound());
 
-        entity.setTitle(request.title());
+        entity.setTitle(normalizeTitle(request.title(), request.content()));
         entity.setContent(request.content());
+        entity.setRecordDate(request.date() == null ? entity.getRecordDate() : request.date());
+        entity.setMood(request.mood());
+        entity.setKeywords(request.keywords());
+        entity.setPhotos(request.photos());
 
         return toResponse(recordRepository.save(entity));
     }
@@ -107,7 +116,20 @@ public class RecordService {
         return new RecordResponse(
                 entity.getId(),
                 entity.getTitle(),
-                entity.getContent()
+                entity.getContent(),
+                entity.getRecordDate(),
+                entity.getMood(),
+                List.copyOf(entity.getKeywords()),
+                List.copyOf(entity.getPhotos()),
+                entity.getCreatedAt()
         );
+    }
+
+    private String normalizeTitle(String title, String content) {
+        if (title != null && !title.isBlank()) return title.trim();
+        String normalizedContent = content.trim().replaceAll("\\s+", " ");
+        return normalizedContent.length() <= 30
+                ? normalizedContent
+                : normalizedContent.substring(0, 30) + "…";
     }
 }

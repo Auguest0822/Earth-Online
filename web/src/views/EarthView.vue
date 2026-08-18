@@ -39,12 +39,9 @@
       <div class="featured-content">
         <span class="category">{{ featured.category }}</span>
         <h3>{{ featured.title }}</h3>
-        <p v-if="featured.summary && featured.summary !== featured.title">{{ featured.summary }}</p>
-        <p v-else class="article-hint">点击“阅读原文”查看新闻详情。</p>
         <div class="article-meta">
           <span>{{ featured.source }}</span>
           <span>{{ featured.region }}</span>
-          <span>{{ formatTime(featured.publishedAt) }}</span>
         </div>
         <el-button type="success" plain @click="openArticle(featured)">阅读原文</el-button>
       </div>
@@ -80,11 +77,8 @@
                 <span>{{ item.region }}</span>
               </div>
               <h4 @click="openArticle(item)">{{ item.title }}</h4>
-              <p v-if="item.summary && item.summary !== item.title">{{ item.summary }}</p>
-              <p v-else class="article-hint">点击标题查看新闻详情。</p>
               <div class="article-meta">
                 <span>{{ item.source }}</span>
-                <span>{{ formatTime(item.publishedAt) }}</span>
               </div>
             </div>
           </article>

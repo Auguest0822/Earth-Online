@@ -20,7 +20,7 @@
       </el-dropdown>
 
       <div class="search-box">
-        <el-input placeholder="搜索记录、心情、标签或歌曲..." prefix-icon="Search" />
+        <el-input placeholder="搜索记录、心情或标签..." prefix-icon="Search" />
       </div>
       
       <div class="actions">
@@ -169,5 +169,30 @@ const handleCommand = (command) => {
       }
     }
   }
+}
+
+@media (max-width: 1280px) {
+  .header { padding: 0 24px; }
+  .header-right { gap: 18px; }
+  .header-right .search-box { width: 220px; }
+}
+
+@media (max-width: 900px) {
+  .header { height: 68px; padding: 0 18px; }
+  .header-right { gap: 14px; }
+  .header-right .search-box { flex: 1; width: auto; max-width: 340px; }
+  .header-right .user-profile { gap: 7px; }
+  .header-right .user-profile .user-info { max-width: 96px; }
+}
+
+@media (max-width: 640px) {
+  .header { height: 60px; padding: 0 12px; }
+  .header-right { justify-content: flex-end; gap: 8px; }
+  .header-right .search-box { display: none; }
+  .header-right .user-profile .user-info,
+  .header-right .user-profile > .el-icon { display: none; }
+  .header-right .user-profile .avatar { width: 32px; height: 32px; }
+  .header-right .actions { gap: 4px; }
+  .header-right .actions .action-button { width: 32px; height: 32px; }
 }
 </style>

@@ -12,7 +12,7 @@ import Timeline from '@/components/Profile/Timeline.vue'
 const profileStore = useProfileStore()
 
 onMounted(() => {
-  profileStore.fetchMockTimelineData()
+  profileStore.fetchProfileData()
 })
 </script>
 

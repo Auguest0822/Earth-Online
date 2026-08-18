@@ -117,4 +117,52 @@ const navigate = (path) => {
     font-weight: 500;
   }
 }
+
+@media (max-width: 1280px) {
+  .sidebar {
+    width: 200px;
+    padding: 20px 16px;
+  }
+
+  .logo-area { margin-bottom: 30px; }
+  .menu-item { padding: 11px 12px; }
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    width: 76px;
+    flex: 0 0 76px;
+    padding: 16px 10px;
+  }
+
+  .logo-area {
+    justify-content: center;
+    margin-bottom: 28px;
+
+    .logo-img { width: 38px; height: 38px; }
+    .logo-text { display: none; }
+  }
+
+  .menu-list { gap: 10px; }
+  .menu-item { justify-content: center; padding: 13px 8px; }
+  .menu-item span { display: none; }
+  .menu-item .el-icon { font-size: 20px; }
+}
+
+@media (max-width: 640px) {
+  .sidebar {
+    width: 60px;
+    flex-basis: 60px;
+    padding: 12px 7px;
+  }
+
+  .logo-area {
+    margin-bottom: 20px;
+    .logo-img { width: 34px; height: 34px; }
+  }
+
+  .menu-list { gap: 7px; }
+  .menu-item { padding: 11px 6px; border-radius: 10px; }
+  .menu-item .el-icon { font-size: 18px; }
+}
 </style>
