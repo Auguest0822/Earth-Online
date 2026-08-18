@@ -49,7 +49,15 @@
         <div class="dot"></div>
         
         <div class="event-list">
-          <div class="event-card" v-for="item in group.items" :key="item.id">
+          <div
+            class="event-card"
+            v-for="item in group.items"
+            :key="item.id"
+            role="button"
+            tabindex="0"
+            @click="openDetail(item)"
+            @keydown.enter="openDetail(item)"
+          >
             <div class="card-header">
               <div class="user-meta">
                 <img :src="profileStore.userInfo?.avatar" class="avatar" />
@@ -58,7 +66,7 @@
                   <span class="time">{{ group.year }}-{{ pad2(group.month) }}-{{ pad2(group.day) }}</span>
                 </div>
               </div>
-              <el-dropdown trigger="click">
+              <el-dropdown trigger="click" @click.stop>
                 <span class="el-dropdown-link" style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
                   <el-icon><MoreFilled /></el-icon>
                 </span>
@@ -74,7 +82,7 @@
             <div class="card-body">
               <div class="info-row">
                 <span class="label">事记：</span>
-                <span class="value">{{ item.content }}</span>
+                <span class="value content-preview">{{ getContentPreview(item.content) }}</span>
               </div>
               <div class="info-row" v-if="item.keywords && item.keywords.length">
                 <span class="label">关键词：</span>
@@ -98,6 +106,38 @@
       </div>
     </div>
 
+    <el-dialog v-model="detailVisible" title="记录详情" width="760px" class="record-detail-dialog">
+      <article v-if="selectedItem" class="record-detail">
+        <header class="detail-header">
+          <div>
+            <p class="detail-date">{{ selectedItem.date }}</p>
+            <h4>{{ selectedItem.title || '这一天的记录' }}</h4>
+          </div>
+          <span v-if="selectedItem.moods?.length" class="detail-mood">{{ selectedItem.moods.join(' ') }}</span>
+        </header>
+
+        <p class="detail-content">{{ selectedItem.content }}</p>
+
+        <div v-if="selectedItem.keywords?.length" class="detail-keywords">
+          <el-tag v-for="keyword in selectedItem.keywords" :key="keyword" type="success" effect="plain">
+            {{ keyword }}
+          </el-tag>
+        </div>
+
+        <div v-if="selectedItem.photos?.length" :class="['detail-photos', `detail-photos--${Math.min(selectedItem.photos.length, 9)}`]">
+          <el-image
+            v-for="(photo, index) in selectedItem.photos"
+            :key="photo"
+            :src="photo"
+            :preview-src-list="selectedItem.photos"
+            :initial-index="index"
+            fit="cover"
+            preview-teleported
+          />
+        </div>
+      </article>
+    </el-dialog>
+
     <div v-if="groupedTimelines.length" class="load-more">
       <el-button type="success" plain round size="small">
         <el-icon><ArrowDown /></el-icon> 查看更多年份
@@ -120,10 +160,19 @@
       </div>
       <el-form class="record-form" :model="formData" :rules="rules" ref="formRef" label-width="80px">
         <el-form-item label="日期" prop="date">
-          <el-date-picker v-model="formData.date" type="date" value-format="YYYY-MM-DD" />
+          <el-date-picker v-model="formData.date" type="date" value-format="YYYY-MM-DD" disabled />
         </el-form-item>
         <el-form-item label="事记" prop="content">
-          <el-input type="textarea" v-model="formData.content" placeholder="说说今天发生了什么" rows="3" />
+          <div class="content-input-wrap">
+            <el-input
+              v-model="formData.content"
+              type="textarea"
+              placeholder="说说今天发生了什么"
+              :maxlength="1500"
+              rows="6"
+            />
+            <span class="content-counter">{{ formData.content.length }} / 1500 字</span>
+          </div>
         </el-form-item>
         <el-form-item label="关键词" class="keyword-form-item">
           <div style="display: flex; gap: 8px;">
@@ -201,6 +250,26 @@ const profileStore = useProfileStore()
 const router = useRouter()
 const selectedYear = ref('all')
 const photoInput = ref(null)
+const detailVisible = ref(false)
+const selectedItem = ref(null)
+
+const getToday = () => {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const getContentPreview = (content) => {
+  const normalized = String(content || '').replace(/\s+/g, ' ').trim()
+  return normalized.length > 120 ? `${normalized.slice(0, 120)}…` : normalized
+}
+
+const openDetail = (item) => {
+  selectedItem.value = item
+  detailVisible.value = true
+}
 const moodOptions = ['😊', '😌', '🥰', '🤔', '🥳', '😴', '😢', '😤', '😔', '😰', '😎', '😶', '😡', '😍', '😳', '🤩']
 
 const parseDateParts = (dateStr) => {
@@ -284,7 +353,7 @@ const handleCreate = () => {
   dialogType.value = 'create'
   Object.assign(formData, {
     id: '',
-    date: new Date().toISOString().slice(0, 10),
+    date: getToday(),
     content: '',
     keywords: [],
     mood: '',
@@ -562,6 +631,15 @@ const removePhoto = (index) => {
       }
     }
 
+    .content-preview {
+      display: inline-block;
+      max-width: min(100%, 860px);
+      overflow: hidden;
+      vertical-align: bottom;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .photos {
       display: grid; grid-template-columns: repeat(3, minmax(0, 96px)); gap: 8px; margin-top: 16px;
       img {
@@ -579,6 +657,36 @@ const removePhoto = (index) => {
     }
   }
 }
+
+.record-detail {
+  .detail-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid $border-color;
+  }
+
+  .detail-date { margin: 0 0 5px; color: $text-secondary; font-size: 13px; }
+  h4 { margin: 0; color: $text-main; font-size: 21px; }
+  .detail-mood { font-size: 25px; line-height: 1; }
+  .detail-content { margin: 20px 0; color: $text-regular; font-size: 15px; line-height: 1.9; white-space: pre-wrap; word-break: break-word; }
+  .detail-keywords { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+}
+
+.detail-photos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+
+  :deep(.el-image) { width: 100%; aspect-ratio: 1; border-radius: 10px; cursor: zoom-in; }
+}
+
+.detail-photos--1 { grid-template-columns: minmax(0, 460px); }
+.detail-photos--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.detail-photos--3 { grid-template-columns: 1.45fr 1fr; }
+.detail-photos--3 :deep(.el-image:first-child) { grid-row: span 2; }
 
 .empty-state {
   display: flex;
@@ -670,6 +778,24 @@ const removePhoto = (index) => {
     border-radius: 10px;
     background: rgba(255, 255, 255, .88);
   }
+}
+
+.content-input-wrap {
+  position: relative;
+  width: 100%;
+
+  :deep(.el-textarea__inner) { min-height: 148px !important; padding-bottom: 28px; }
+}
+
+.content-counter {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  z-index: 2;
+  color: $text-secondary;
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .mood-select { width: 100%; }

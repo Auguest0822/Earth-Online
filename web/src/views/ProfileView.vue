@@ -64,7 +64,7 @@
             <i></i>
             <div class="timeline-content">
               <div class="record-mood">{{ item.moods?.[0] || '🌿' }} {{ moodLabel(item.moods?.[0]) }}</div>
-              <p>{{ item.content }}</p>
+              <p>{{ getContentPreview(item.content) }}</p>
               <div class="record-bottom">
                 <div><span v-for="keyword in item.keywords || []" :key="keyword"># {{ keyword }}</span></div>
                 <img v-if="item.photos?.[0]" :src="item.photos[0]" :alt="item.content" />
@@ -153,6 +153,10 @@ const chartPoints = computed(() => profileStore.moodTrend.length
 
 const formatDay = value => new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }).replace('/', '-')
 const formatYear = value => new Date(value).getFullYear()
+const getContentPreview = (content, maxLength = 84) => {
+  const normalized = String(content || '').replace(/\s+/g, ' ').trim()
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}…` : normalized
+}
 const moodLabel = icon => moods.find(item => item.icon === icon)?.label || '记录'
 const formatNewsTime = value => {
   const minutes = Math.max(1, Math.floor((Date.now() - new Date(value).getTime()) / 60000))
@@ -212,13 +216,13 @@ onMounted(async () => {
 .mood-row button { padding: 6px 10px; border: 1px solid transparent; border-radius: 999px; color: $text-regular; background: #fbf7ef; cursor: pointer; }
 .mood-row button.active { color: #3f9b68; border-color: rgba(102,194,138,.25); background: #edf8f1; }
 .attachment-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-.dashboard-grid { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(360px,.9fr); gap: 16px; align-items: stretch; }
-.recent-panel { min-height: 386px; }.side-stack { display: grid; grid-template-rows: repeat(2,minmax(0,1fr)); gap: 16px; }
-.future-card,.year-card { display: flex; flex-direction: column; justify-content: center; }
+.dashboard-grid { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(360px,.9fr); gap: 16px; align-items: start; }
+.recent-panel { min-height: 386px; }.side-stack { display: grid; grid-template-rows: 176px 176px; align-self: start; gap: 16px; }
+.future-card,.year-card { min-height: 0; display: flex; flex-direction: column; justify-content: center; }
 .timeline-list { display: flex; flex-direction: column; }.timeline-item { display: grid; grid-template-columns: 56px 10px 1fr; gap: 10px; min-height: 86px; }
 .timeline-date strong,.timeline-date span { display: block; }.timeline-date strong { color: $text-main; font-size: 13px; }.timeline-date span { color: $text-secondary; font-size: 11px; }
 .timeline-item > i { position: relative; width: 2px; height: 100%; background: rgba(102,194,138,.2); }.timeline-item > i::before { content:''; position:absolute; left:-3px; width:8px; height:8px; border-radius:50%; background:$primary-color; }
-.timeline-content { padding: 0 0 12px; }.record-mood { color: #3f9b68; font-size: 12px; }.timeline-content p { margin: 6px 0; color:$text-regular; font-size:13px; line-height:1.55; }
+.timeline-content { padding: 0 0 12px; }.record-mood { color: #3f9b68; font-size: 12px; }.timeline-content p { display:-webkit-box; overflow:hidden; margin:6px 0; color:$text-regular; font-size:13px; line-height:1.55; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
 .record-bottom { display:flex; justify-content:space-between; align-items:center; gap:10px; }.record-bottom span { margin-right:6px; color:#4fa875; background:#edf8f1; padding:3px 7px; border-radius:999px; font-size:10px; }.record-bottom img { width:72px; height:42px; object-fit:cover; border-radius:6px; }
 .text-link { border:0; color:#43a36b; background:transparent; cursor:pointer; }.full-link { width:100%; padding:10px; background:rgba(102,194,138,.07); border-radius:8px; }
 .letter-preview,.year-summary { display:flex; align-items:center; gap:14px; }.envelope { display:grid; place-items:center; width:88px; height:62px; border-radius:10px; background:#fff5e7; font-size:28px; }

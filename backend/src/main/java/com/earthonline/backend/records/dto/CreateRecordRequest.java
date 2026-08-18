@@ -11,7 +11,7 @@ public record CreateRecordRequest(
         String title,
 
         @NotBlank(message = "内容不能为空")
-        @Size(max = 5000, message = "内容不能超过 5000 个字符")
+        @Size(max = 1500, message = "事记内容不能超过 1500 字")
         String content,
 
         LocalDate date,

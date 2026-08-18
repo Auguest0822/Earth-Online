@@ -49,13 +49,12 @@
           </div>
 
           <div v-if="recentTimelines.length" class="trace-list">
-            <div v-for="item in recentTimelines" :key="item.id" class="trace-item">
-              <div class="trace-date">
-                <strong>{{ formatDay(item.date) }}</strong>
-                <span>{{ formatMonth(item.date) }}</span>
-              </div>
-              <div class="trace-content">
-                <p>{{ item.content }}</p>
+              <div v-for="item in recentTimelines" :key="item.id" class="trace-item">
+                <div class="trace-date">
+                  <strong>{{ formatFullDate(item.date) }}</strong>
+                </div>
+                <div class="trace-content">
+                  <p>{{ getContentPreview(item.content) }}</p>
                 <div class="trace-tags">
                   <span v-for="tag in item.keywords" :key="tag">{{ tag }}</span>
                 </div>
@@ -320,15 +319,15 @@ const saveProfile = async () => {
 
 const getDate = (dateStr) => new Date(dateStr)
 
-const formatDay = (dateStr) => {
-  const date = getDate(dateStr)
-  return Number.isNaN(date.getTime()) ? '--' : String(date.getDate()).padStart(2, '0')
-}
-
-const formatMonth = (dateStr) => {
+const formatFullDate = (dateStr) => {
   const date = getDate(dateStr)
   if (Number.isNaN(date.getTime())) return '--'
-  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}`
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
+}
+
+const getContentPreview = (content, maxLength = 96) => {
+  const normalized = String(content || '').replace(/\s+/g, ' ').trim()
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}…` : normalized
 }
 </script>
 
@@ -538,19 +537,17 @@ const formatMonth = (dateStr) => {
 }
 
 .trace-date {
-  width: 62px;
-  text-align: center;
+  flex: 0 0 120px;
+  padding-top: 4px;
+  text-align: left;
 
   strong {
     display: block;
     color: $primary-color;
-    font-size: 24px;
-    line-height: 1;
-  }
-
-  span {
-    color: $text-secondary;
-    font-size: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+    white-space: nowrap;
   }
 }
 
@@ -559,10 +556,14 @@ const formatMonth = (dateStr) => {
   min-width: 0;
 
   p {
+    display: -webkit-box;
+    overflow: hidden;
     margin: 0 0 10px;
     color: $text-main;
     font-size: 14px;
     line-height: 1.7;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
   }
 }
 

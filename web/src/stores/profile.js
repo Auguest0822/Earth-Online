@@ -117,6 +117,23 @@ const sortTimelinesByDateDesc = (a, b) => {
   return new Date(getTimelineDate(b)) - new Date(getTimelineDate(a))
 }
 
+// API 模式下，关键词来自每一条记录；在前端按出现次数汇总为关键词云数据。
+const buildKeywordCloud = (timelines) => {
+  const counts = new Map()
+
+  timelines.forEach((timeline) => {
+    ;(timeline.keywords || []).forEach((keyword) => {
+      const name = String(keyword || '').trim()
+      if (!name) return
+      counts.set(name, (counts.get(name) || 0) + 1)
+    })
+  })
+
+  return [...counts.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name, 'zh-CN'))
+}
+
 const toRecordPayload = (timeline) => ({
   title: timeline.title || '',
   content: timeline.content,
@@ -177,7 +194,7 @@ export const useProfileStore = defineStore('profile', {
           this.timelines = (records.items || records).map(toTimeline).sort(sortTimelinesByDateDesc)
           this.eventsData = []
           this.moodTrend = []
-          this.keywords = []
+          this.keywords = buildKeywordCloud(this.timelines)
           this.futureLetters = []
           return { userInfo: this.userInfo, timelines: this.timelines }
         } catch (error) {
@@ -225,6 +242,7 @@ export const useProfileStore = defineStore('profile', {
         try {
           const saved = await createRecord(toRecordPayload(timeline))
           this.timelines = this.timelines.map(item => item.id === payload.id ? toTimeline(saved) : item)
+          this.keywords = buildKeywordCloud(this.timelines)
         } catch (error) {
           if (source === 'api') this.timelines = this.timelines.filter(item => item.id !== payload.id)
           if (source === 'api') throw error
@@ -242,10 +260,12 @@ export const useProfileStore = defineStore('profile', {
       if (getAppDataSource() !== 'mock') {
         const saved = await updateRecord(timeline.id, toRecordPayload(timeline))
         this.timelines = this.timelines.map(item => item.id === timeline.id ? toTimeline(saved) : item)
+        this.keywords = buildKeywordCloud(this.timelines)
       }
     },
     async deleteTimeline(id) {
       this.timelines = this.timelines.filter(t => t.id !== id)
+      this.keywords = buildKeywordCloud(this.timelines)
       if (getAppDataSource() !== 'mock') await deleteRecord(id)
     },
     async updateUserInfo(userInfo) {
