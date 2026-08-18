@@ -3,7 +3,7 @@
     <div class="header-right">
       <el-dropdown trigger="click" @command="handleCommand">
         <div class="user-profile">
-          <img :src="avatarPlaceholder" class="avatar" />
+          <img :src="profileStore.userInfo?.avatar || avatarPlaceholder" class="avatar" />
           <div class="user-info">
             <div class="user-line" :title="profileStore.userInfo?.nickname">
               <span class="name">{{ displayName }}</span>
@@ -55,7 +55,7 @@ const displayName = computed(() => {
 const handleCommand = (command) => {
   if (command === 'switch' || command === 'logout') {
     logout()
-    profileStore.$reset()
+    profileStore.clearUserSession()
     router.replace('/login')
   }
 }

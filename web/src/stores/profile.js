@@ -43,6 +43,11 @@ const saveUserInfo = (userInfo) => {
   }
 }
 
+const clearSavedUserInfo = () => {
+  if (typeof window === 'undefined') return
+  window.localStorage.removeItem(USER_INFO_STORAGE_KEY)
+}
+
 const isLeapYear = (year) => {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
 }
@@ -119,7 +124,7 @@ const toRecordPayload = (timeline) => ({
   mood: timeline.mood || timeline.moods?.[0] || '',
   keywords: timeline.keywords || [],
   // blob: 地址只适合本地预览；MinIO 上传完成后才会把真实 URL 放进 photos。
-  photos: (timeline.photos || []).filter(photo => /^https?:\/\//.test(photo))
+  photos: timeline.photoObjectKeys || []
 })
 
 const toTimeline = (record) => ({
@@ -127,7 +132,8 @@ const toTimeline = (record) => ({
   date: record.date || record.createdAt || new Date().toISOString(),
   moods: record.moods || (record.mood ? [record.mood] : []),
   keywords: record.keywords || [],
-  photos: record.photos || []
+  photos: record.photos || [],
+  photoObjectKeys: record.photoObjectKeys || []
 })
 
 export const useProfileStore = defineStore('profile', {
@@ -143,6 +149,15 @@ export const useProfileStore = defineStore('profile', {
     userStats: (state) => buildSurvivalStats(state.userInfo)
   },
   actions: {
+    clearUserSession() {
+      clearSavedUserInfo()
+      this.userInfo = null
+      this.timelines = []
+      this.eventsData = []
+      this.moodTrend = []
+      this.keywords = []
+      this.futureLetters = []
+    },
     async fetchProfileData() {
       const source = getAppDataSource()
       if (source !== 'mock') {

@@ -2,6 +2,7 @@ package com.earthonline.backend.records;
 
 import com.earthonline.backend.records.dto.CreateRecordRequest;
 import com.earthonline.backend.records.dto.RecordResponse;
+import com.earthonline.backend.storage.StorageService;
 import com.earthonline.backend.user.UserEntity;
 import com.earthonline.backend.user.UserRepository;
 import org.springframework.http.HttpStatus;
@@ -17,13 +18,16 @@ public class RecordService {
 
     private final RecordRepository recordRepository;
     private final UserRepository userRepository;
+    private final StorageService storageService;
 
     public RecordService(
             RecordRepository recordRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            StorageService storageService
     ) {
         this.recordRepository = recordRepository;
         this.userRepository = userRepository;
+        this.storageService = storageService;
     }
 
     public List<RecordResponse> list(String username) {
@@ -31,7 +35,7 @@ public class RecordService {
 
         return recordRepository.findAllByUserId(userId)
                 .stream()
-                .map(this::toResponse)
+                .map(entity -> toResponse(entity, username))
                 .toList();
     }
 
@@ -49,10 +53,10 @@ public class RecordService {
                 request.date() == null ? LocalDate.now() : request.date(),
                 request.mood(),
                 request.keywords(),
-                request.photos()
+                validatePhotoObjectKeys(username, request.photos())
         );
 
-        return toResponse(recordRepository.save(entity));
+        return toResponse(recordRepository.save(entity), username);
     }
 
     public RecordResponse findById(String username, Long id) {
@@ -62,7 +66,7 @@ public class RecordService {
                 .findByIdAndUserId(id, userId)
                 .orElseThrow(() -> recordNotFound());
 
-        return toResponse(entity);
+        return toResponse(entity, username);
     }
 
     public RecordResponse update(
@@ -81,9 +85,9 @@ public class RecordService {
         entity.setRecordDate(request.date() == null ? entity.getRecordDate() : request.date());
         entity.setMood(request.mood());
         entity.setKeywords(request.keywords());
-        entity.setPhotos(request.photos());
+        entity.setPhotos(validatePhotoObjectKeys(username, request.photos()));
 
-        return toResponse(recordRepository.save(entity));
+        return toResponse(recordRepository.save(entity), username);
     }
 
     public void delete(String username, Long id) {
@@ -112,7 +116,7 @@ public class RecordService {
         );
     }
 
-    private RecordResponse toResponse(RecordEntity entity) {
+    private RecordResponse toResponse(RecordEntity entity, String username) {
         return new RecordResponse(
                 entity.getId(),
                 entity.getTitle(),
@@ -120,9 +124,42 @@ public class RecordService {
                 entity.getRecordDate(),
                 entity.getMood(),
                 List.copyOf(entity.getKeywords()),
+                entity.getPhotos().stream()
+                        .map(photo -> toPreviewUrl(username, photo))
+                        .filter(java.util.Objects::nonNull)
+                        .toList(),
                 List.copyOf(entity.getPhotos()),
                 entity.getCreatedAt()
         );
+    }
+
+    private List<String> validatePhotoObjectKeys(String username, List<String> photos) {
+        String expectedPrefix = "records/" + username + "/";
+
+        for (String photo : photos) {
+            if (photo == null || !photo.startsWith(expectedPrefix)) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "图片必须先通过上传接口上传"
+                );
+            }
+        }
+
+        return List.copyOf(photos);
+    }
+
+    private String toPreviewUrl(String username, String photo) {
+        // 兼容早期已保存的 http 图片地址；新记录统一保存 MinIO 对象名。
+        if (photo.startsWith("http://") || photo.startsWith("https://")) {
+            return photo;
+        }
+
+        String expectedPrefix = "records/" + username + "/";
+        if (!photo.startsWith(expectedPrefix)) {
+            return null;
+        }
+
+        return storageService.getPreviewUrl(photo);
     }
 
     private String normalizeTitle(String title, String content) {

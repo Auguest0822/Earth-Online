@@ -2,6 +2,11 @@ spring:
   application:
     name: earth-online-backend
 
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 45MB
+
   datasource:
     url: jdbc:mysql://localhost:3306/earth_online?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: root
@@ -31,3 +36,15 @@ gnews:
 
 server:
   port: 8080
+
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:}
+  secret-key: ${MINIO_SECRET_KEY:}
+  bucket: earth-online-records
+
+# 临时开启：用于定位上传接口为何返回 403。问题解决后会删除。
+logging:
+  level:
+    org.springframework.security: TRACE
+    com.earthonline.backend.auth: DEBUG

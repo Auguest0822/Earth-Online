@@ -2,6 +2,7 @@ package com.earthonline.backend.user;
 
 import com.earthonline.backend.user.dto.UpdateProfileRequest;
 import com.earthonline.backend.user.dto.UserResponse;
+import com.earthonline.backend.storage.StorageService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -10,9 +11,11 @@ import org.springframework.web.server.ResponseStatusException;
 public class ProfileService {
 
     private final UserRepository userRepository;
+    private final StorageService storageService;
 
-    public ProfileService(UserRepository userRepository) {
+    public ProfileService(UserRepository userRepository, StorageService storageService) {
         this.userRepository = userRepository;
+        this.storageService = storageService;
     }
 
     public UserResponse getProfile(String username) {
@@ -59,7 +62,7 @@ public class ProfileService {
                 user.getId(),
                 user.getUsername(),
                 user.getEmail(),
-                user.getAvatar(),
+                storageService.getAvatarPreviewUrl(user.getUsername(), user.getAvatar()),
                 user.getSlogan(),
                 user.getBirthDate()
         );

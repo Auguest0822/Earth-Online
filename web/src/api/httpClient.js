@@ -17,6 +17,7 @@ export class ApiError extends Error {
 
 export const request = async (path, options = {}) => {
   const { method = 'GET', body, params, headers = {}, signal } = options
+  const isFormData = body instanceof FormData
   const query = params ? `?${new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== '')).toString()}` : ''
   const isAuthRequest = path === '/auth/login' || path === '/auth/register'
   const token = isAuthRequest ? '' : getAccessToken()
@@ -25,11 +26,11 @@ export const request = async (path, options = {}) => {
     signal,
     headers: {
       Accept: 'application/json',
-      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      ...(body !== undefined && !isFormData ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers
     },
-    body: body === undefined ? undefined : JSON.stringify(body)
+    body: body === undefined ? undefined : (isFormData ? body : JSON.stringify(body))
   })
 
   const contentType = response.headers.get('content-type') || ''

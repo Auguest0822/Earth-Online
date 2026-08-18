@@ -86,8 +86,10 @@ import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { getAppDataSource } from '@/api/config'
 import { login, register } from '@/api/modules/auth'
+import { useProfileStore } from '@/stores/profile'
 
 const router = useRouter()
+const profileStore = useProfileStore()
 const activeTab = ref('login')
 const loginError = ref('')
 
@@ -113,6 +115,8 @@ const handleLogin = async () => {
   if (getAppDataSource() !== 'mock') {
     try {
       await login({ username: loginForm.username, password: loginForm.password })
+      profileStore.clearUserSession()
+      await profileStore.fetchProfileData()
     } catch (error) {
       loginError.value = error.status === 401 || error.status === 403
         ? '用户名或密码有误'
@@ -143,6 +147,8 @@ const handleRegister = async () => {
           email: registerForm.email
       })
       await login({ username: registerForm.username, password: registerForm.password })
+      profileStore.clearUserSession()
+      await profileStore.fetchProfileData()
     } catch (error) {
       ElMessage.error(error.message || '注册失败')
       return

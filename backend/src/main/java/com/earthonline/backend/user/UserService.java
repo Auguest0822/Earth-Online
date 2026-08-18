@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 
 import com.earthonline.backend.auth.JwtService;
+import com.earthonline.backend.storage.StorageService;
 import com.earthonline.backend.user.dto.LoginResponse;
 
 @Service
@@ -18,15 +19,18 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final StorageService storageService;
 
     public UserService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
-            JwtService jwtService
+            JwtService jwtService,
+            StorageService storageService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.storageService = storageService;
     }
 
     public UserResponse register(RegisterRequest request) {
@@ -49,14 +53,7 @@ public class UserService {
 
         UserEntity saved = userRepository.save(user);
 
-        return new UserResponse(
-                saved.getId(),
-                saved.getUsername(),
-                saved.getEmail(),
-                saved.getAvatar(),
-                saved.getSlogan(),
-                saved.getBirthDate()
-        );
+        return toResponse(saved);
     }
 
     public LoginResponse login(
@@ -82,14 +79,7 @@ public class UserService {
             );
         }
 
-        UserResponse userResponse = new UserResponse(
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
-                user.getAvatar(),
-                user.getSlogan(),
-                user.getBirthDate()
-        );
+        UserResponse userResponse = toResponse(user);
 
         String token = jwtService.generateToken(
                 user.getId(),
@@ -106,11 +96,15 @@ public class UserService {
                         "用户不存在"
                 ));
 
+        return toResponse(user);
+    }
+
+    private UserResponse toResponse(UserEntity user) {
         return new UserResponse(
                 user.getId(),
                 user.getUsername(),
                 user.getEmail(),
-                user.getAvatar(),
+                storageService.getAvatarPreviewUrl(user.getUsername(), user.getAvatar()),
                 user.getSlogan(),
                 user.getBirthDate()
         );

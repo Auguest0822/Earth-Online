@@ -3,7 +3,7 @@
     <section class="profile-hero">
       <div class="identity">
         <div class="avatar-ring">
-          <img :src="avatarPlaceholder" alt="avatar" />
+          <img :src="avatarSrc" alt="avatar" />
         </div>
         <div class="identity-text">
           <span class="eyebrow">My Earth Archive</span>
@@ -128,8 +128,17 @@
         <div class="profile-editor-layout">
           <aside class="avatar-editor">
           <div class="avatar-preview">
-            <img :src="avatarPlaceholder" alt="avatar preview" />
+            <img :src="avatarPreview" alt="avatar preview" />
           </div>
+          <el-upload
+            class="avatar-upload"
+            accept="image/jpeg,image/png,image/webp"
+            :auto-upload="false"
+            :show-file-list="false"
+            @change="handleAvatarFile"
+          >
+            <el-button type="success" plain size="small">选择头像</el-button>
+          </el-upload>
           <div class="avatar-note">
             <strong>{{ profileStore.userInfo.username }}</strong>
             <span>头像上传功能将在后续开放</span>
@@ -181,6 +190,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useProfileStore } from '@/stores/profile'
+import { uploadAvatar } from '@/api/modules/uploads'
 import avatarPlaceholder from '@/assets/picture/avator.jpg'
 
 const router = useRouter()
@@ -198,6 +208,7 @@ const displayInfo = computed(() => ({
 const recentTimelines = computed(() => profileStore.timelines.slice(0, 3))
 const futureLetterCount = computed(() => profileStore.futureLetters.length)
 const profileEditorVisible = ref(false)
+const avatarFile = ref(null)
 const profileForm = reactive({
   email: '',
   avatar: '',
@@ -212,6 +223,9 @@ const statCards = computed(() => [
   { label: '关键词数', value: profileStore.keywords.length, icon: 'PriceTag' }
 ])
 
+const avatarSrc = computed(() => profileStore.userInfo?.avatar || avatarPlaceholder)
+const avatarPreview = computed(() => profileForm.avatar || avatarSrc.value)
+
 const settingItems = [
   { label: '编辑头像与昵称', icon: 'User', action: 'editProfile' },
   { label: '更新个性签名', icon: 'EditPen', action: 'editProfile' },
@@ -224,6 +238,7 @@ const openProfileEditor = () => {
   profileForm.avatar = profileStore.userInfo?.avatar || ''
   profileForm.slogan = profileStore.userInfo?.slogan || ''
   profileForm.birthDate = profileStore.userInfo?.birthDate || ''
+  avatarFile.value = null
   profileEditorVisible.value = true
 }
 
@@ -236,6 +251,20 @@ const handleSettingClick = (action) => {
 const handleAvatarFile = (uploadFile) => {
   const file = uploadFile.raw
   if (!file) return
+
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    ElMessage.warning('请选择 JPG、PNG 或 WebP 图片')
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    ElMessage.warning('头像图片不能超过 5MB')
+    return
+  }
+
+  avatarFile.value = file
+  profileForm.avatar = URL.createObjectURL(file)
+  return
+
   if (!file.type.startsWith('image/')) {
     ElMessage.warning('请选择图片文件')
     return
@@ -258,6 +287,23 @@ const saveProfile = async () => {
   }
 
   try {
+    const payload = {
+      email,
+      slogan: profileForm.slogan.trim(),
+      birthDate: profileForm.birthDate || null
+    }
+
+    if (avatarFile.value) {
+      const uploaded = await uploadAvatar(avatarFile.value)
+      payload.avatar = uploaded.objectKey
+    }
+
+    await profileStore.updateUserInfo(payload)
+    avatarFile.value = null
+    profileEditorVisible.value = false
+    ElMessage.success('个人资料已更新')
+    return
+
     await profileStore.updateUserInfo({
       email,
       avatar: profileForm.avatar.trim() || profileStore.userInfo.avatar,
@@ -687,6 +733,10 @@ const formatMonth = (dateStr) => {
     border: 3px solid #fff;
     border-radius: 50%;
   }
+}
+
+.avatar-upload {
+  margin-top: 14px;
 }
 
 .avatar-actions {

@@ -4,6 +4,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -15,6 +17,9 @@ import java.util.List;
 @Component
 public class JwtAuthenticationFilter
         extends OncePerRequestFilter {
+
+    private static final Logger log =
+            LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtService jwtService;
 
@@ -30,6 +35,13 @@ public class JwtAuthenticationFilter
     ) throws ServletException, IOException {
 
         String header = request.getHeader("Authorization");
+
+        log.debug(
+                "JWT filter: {} {}, authorizationHeaderPresent={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                header != null
+        );
 
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
@@ -49,7 +61,18 @@ public class JwtAuthenticationFilter
                         .getContext()
                         .setAuthentication(authentication);
 
-            } catch (Exception ignored) {
+                log.debug(
+                        "JWT authentication established for user={}",
+                        username
+                );
+
+            } catch (Exception exception) {
+                log.warn(
+                        "JWT authentication failed for {} {}: {}",
+                        request.getMethod(),
+                        request.getRequestURI(),
+                        exception.getMessage()
+                );
                 // token 无效时不设置登录身份
             }
         }

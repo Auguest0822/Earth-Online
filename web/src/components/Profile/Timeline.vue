@@ -166,8 +166,8 @@
             </el-button>
             <span class="upload-tip">JPG、PNG、WebP，单张不超过 5MB</span>
             <div v-if="formData.photos.length" :class="['photo-grid', `photo-grid--${formData.photos.length}`]">
-              <div v-for="(photo, index) in formData.photos" :key="photo" class="preview-item">
-                <img :src="photo" :alt="`记录图片 ${index + 1}`" />
+              <div v-for="(photo, index) in formData.photos" :key="photo.objectKey || photo.preview" class="preview-item">
+                <img :src="photo.preview" :alt="`记录图片 ${index + 1}`" />
                 <button type="button" :aria-label="`删除图片 ${index + 1}`" @click="removePhoto(index)">×</button>
               </div>
             </div>
@@ -190,6 +190,7 @@ import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProfileStore } from '@/stores/profile'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { uploadRecordImage } from '@/api/modules/uploads'
 import recordBanner from '@/assets/picture/timeline-record-banner.png'
 
 const props = defineProps({
@@ -300,6 +301,10 @@ const handleEdit = (item) => {
   dialogType.value = 'edit'
   Object.assign(formData, JSON.parse(JSON.stringify(item)))
   formData.mood = item.moods?.[0] || ''
+  formData.photos = (item.photos || []).map((preview, index) => ({
+    preview,
+    objectKey: item.photoObjectKeys?.[index] || ''
+  }))
   keywordInput.value = ''
   dialogVisible.value = true
 }
@@ -317,22 +322,37 @@ const handleDelete = (id) => {
 
 const submitForm = async () => {
   if (!formRef.value) return
-  await formRef.value.validate((valid) => {
-    if (valid) {
-      if (dialogType.value === 'create') {
-        profileStore.addTimeline({
-          ...formData,
-          moods: formData.mood ? [formData.mood] : [],
-          id: formData.id || `t-${Date.now()}`
-        })
-        ElMessage.success('添加成功')
+  const valid = await formRef.value.validate().catch(() => false)
+  if (!valid) return
+
+  try {
+    const photoObjectKeys = []
+    for (const photo of formData.photos) {
+      if (photo.objectKey) {
+        photoObjectKeys.push(photo.objectKey)
       } else {
-        profileStore.updateTimeline({ ...formData, moods: formData.mood ? [formData.mood] : [] })
-        ElMessage.success('修改成功')
+        const result = await uploadRecordImage(photo.file)
+        photoObjectKeys.push(result.objectKey)
       }
-      dialogVisible.value = false
     }
-  })
+
+    const payload = {
+      ...formData,
+      photoObjectKeys,
+      moods: formData.mood ? [formData.mood] : []
+    }
+
+    if (dialogType.value === 'create') {
+      await profileStore.addTimeline({ ...payload, id: formData.id || `t-${Date.now()}` })
+      ElMessage.success('添加成功')
+    } else {
+      await profileStore.updateTimeline(payload)
+      ElMessage.success('修改成功')
+    }
+    dialogVisible.value = false
+  } catch (error) {
+    ElMessage.error(error?.message || '图片或记录保存失败，请重试')
+  }
 }
 
 const addKeyword = () => {
@@ -362,7 +382,11 @@ const handlePhotoSelect = (event) => {
       ElMessage.warning('单张图片不能超过 5MB')
       return
     }
-    formData.photos.push(URL.createObjectURL(file))
+    formData.photos.push({
+      preview: URL.createObjectURL(file),
+      file,
+      objectKey: ''
+    })
   })
 
   if (files.length > remaining) ElMessage.warning('每条记录最多添加 9 张图片')
@@ -371,7 +395,7 @@ const handlePhotoSelect = (event) => {
 
 const removePhoto = (index) => {
   const [removed] = formData.photos.splice(index, 1)
-  if (removed?.startsWith('blob:')) URL.revokeObjectURL(removed)
+  if (removed?.preview?.startsWith('blob:')) URL.revokeObjectURL(removed.preview)
 }
 </script>
 

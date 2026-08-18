@@ -12,6 +12,7 @@ public record RecordResponse(
         String mood,
         List<String> keywords,
         List<String> photos,
+        List<String> photoObjectKeys,
         LocalDateTime createdAt
 ) {
     public List<String> moods() {
