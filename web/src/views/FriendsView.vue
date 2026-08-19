@@ -69,7 +69,12 @@
               <strong>{{ friend.name }}</strong><time>{{ friend.time }}</time>
             </span>
             <span class="friend-public-id">ID · {{ friend.publicId }}</span>
-            <span class="friend-item__message">{{ friend.preview }}</span>
+            <span class="friend-item__bottom">
+              <span class="friend-item__message">{{ friend.preview }}</span>
+              <span v-if="friend.unreadCount" class="friend-item__unread" :aria-label="`${friend.unreadCount} 条未读消息`">
+                {{ friend.unreadCount > 99 ? '99+' : friend.unreadCount }}
+              </span>
+            </span>
           </span>
         </button>
         <div v-if="loadingFriends" class="friend-list__empty"><p>正在加载好友列表…</p></div>
@@ -87,7 +92,7 @@
             <Avatar :user="selectedFriend" size="large" />
             <div>
               <h3>{{ selectedFriend.name }}</h3>
-              <p><span class="online-dot"></span> 正在地球上生活</p>
+              <p><span class="online-dot" :class="{ offline: !chatConnected }"></span> {{ chatConnected ? '实时连接' : '正在重连…' }}</p>
             </div>
           </div>
           <el-button text circle :icon="MoreFilled" title="更多操作" />
@@ -100,10 +105,26 @@
             <p>还没有聊天记录，和好友打个招呼吧。</p>
           </div>
           <div v-else class="message-list">
-            <article v-for="message in messages" :key="message.id" class="message-row" :class="{ mine: message.mine }">
-              <Avatar v-if="!message.mine" :user="message.sender" size="small" />
-              <div class="message-bubble"><p>{{ message.content }}</p><time>{{ formatMessageTime(message.createdAt) }}</time></div>
-            </article>
+            <template v-for="(message, index) in messages" :key="message.id">
+              <div v-if="shouldShowMessageTime(message, messages[index - 1])" class="message-time-divider">
+                {{ formatMessageTime(message.createdAt) }}
+              </div>
+              <article class="message-row" :class="{ mine: message.mine }">
+                <Avatar v-if="!message.mine" :user="message.sender" size="small" />
+                <div class="message-body">
+                  <div class="message-bubble"><p>{{ message.content }}</p></div>
+                  <button
+                    v-if="message.mine && message.deliveryStatus === 'failed'"
+                    type="button"
+                    class="message-retry"
+                    @click="retryMessage(message)"
+                  >发送失败，点击重试</button>
+                  <span v-else-if="message.mine" class="message-read-state">
+                    {{ message.deliveryStatus === 'sending' ? '发送中' : (message.readAt ? '已读' : '未读') }}
+                  </span>
+                </div>
+              </article>
+            </template>
           </div>
         </div>
 
@@ -127,11 +148,12 @@
 </template>
 
 <script setup>
-import { defineComponent, h, nextTick, onMounted, ref, watch } from 'vue'
+import { defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ChatDotRound, MoreFilled, Picture, Search, UserFilled } from '@element-plus/icons-vue'
 import { acceptFriendRequest, listFriends, listReceivedFriendRequests, rejectFriendRequest, searchFriendByPublicId, sendFriendRequest } from '@/api/modules/friends'
-import { listChatMessages, sendChatMessage } from '@/api/modules/chat'
+import { listChatMessages, listChatUnreadCounts, markChatMessagesRead, sendChatMessage } from '@/api/modules/chat'
+import { connectChatSocket, disconnectChatSocket, isChatSocketConnected, sendChatSocketMessage } from '@/api/chatSocket'
 
 const avatarColors = [
   'linear-gradient(135deg, #92d7b0, #5ea979)',
@@ -201,7 +223,11 @@ const processingRequestId = ref(null)
 const messages = ref([])
 const loadingMessages = ref(false)
 const sendingMessage = ref(false)
+const chatConnected = ref(false)
 const chatContent = ref(null)
+const messageTimeouts = new Map()
+const receivedMessageIds = new Set()
+const MESSAGE_TIMEOUT_MS = 10000
 
 const formatFriendsSince = value => {
   if (!value) return ''
@@ -217,7 +243,8 @@ const mapFriend = friend => ({
   publicId: friend.publicId,
   avatar: friend.avatar,
   preview: friend.slogan || '已经成为好友，开始你们的地球对话吧。',
-  time: formatFriendsSince(friend.friendsSince)
+  time: formatFriendsSince(friend.friendsSince),
+  unreadCount: 0
 })
 
 const friendActionText = status => ({
@@ -230,9 +257,15 @@ const friendActionText = status => ({
 const loadFriends = async () => {
   loadingFriends.value = true
   try {
-    const result = await listFriends()
+    const [result, unreadResult] = await Promise.all([listFriends(), listChatUnreadCounts()])
     const list = Array.isArray(result) ? result : (result?.content || result?.items || [])
-    friends.value = list.map(mapFriend)
+    const unreadCounts = new Map(
+      (Array.isArray(unreadResult) ? unreadResult : []).map(item => [item.friendPublicId, Number(item.unreadCount) || 0])
+    )
+    friends.value = list.map(friend => ({
+      ...mapFriend(friend),
+      unreadCount: unreadCounts.get(friend.publicId) || 0
+    }))
     if (!selectedFriend.value || !friends.value.some(friend => friend.id === selectedFriend.value.id)) {
       selectedFriend.value = friends.value[0] || null
     }
@@ -288,22 +321,55 @@ const formatMessageTime = value => {
   return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit' }).format(date)
 }
 
+const shouldShowMessageTime = (message, previousMessage) => {
+  if (!previousMessage) return true
+  const currentTime = new Date(message.createdAt).getTime()
+  const previousTime = new Date(previousMessage.createdAt).getTime()
+  // Invalid dates should still show a separator rather than hiding useful context.
+  if (Number.isNaN(currentTime) || Number.isNaN(previousTime)) return true
+  return currentTime - previousTime >= 5 * 60 * 1000
+}
+
 const scrollMessagesToBottom = async () => {
   await nextTick()
   if (chatContent.value) chatContent.value.scrollTop = chatContent.value.scrollHeight
 }
 
-const loadMessages = async friend => {
+const isSameMessageList = (current, next) => (
+  current.length === next.length
+  && current.every((message, index) => String(message.id) === String(next[index]?.id))
+)
+
+const isNearMessagesBottom = () => {
+  if (!chatContent.value) return true
+  const { scrollHeight, scrollTop, clientHeight } = chatContent.value
+  return scrollHeight - scrollTop - clientHeight < 80
+}
+
+const loadMessages = async (friend, { silent = false } = {}) => {
   if (!friend?.publicId) {
     messages.value = []
     return
   }
-  loadingMessages.value = true
-  messages.value = []
+  if (!silent) loadingMessages.value = true
+  const friendPublicId = friend.publicId
+  const shouldStickToBottom = !silent || isNearMessagesBottom()
   try {
     const result = await listChatMessages(friend.publicId)
-    messages.value = Array.isArray(result) ? result : (result?.content || result?.items || [])
-    await scrollMessagesToBottom()
+    // Prevent a slower request for a previously selected friend from replacing
+    // the active conversation after the user switches to someone else.
+    if (selectedFriend.value?.publicId === friendPublicId) {
+      const serverMessages = Array.isArray(result) ? result : (result?.content || result?.items || [])
+      const serverClientIds = new Set(serverMessages.map(message => message.clientMessageId).filter(Boolean))
+      const localPending = messages.value.filter(message => (
+        message.clientMessageId && !serverClientIds.has(message.clientMessageId)
+      ))
+      const nextMessages = [...serverMessages, ...localPending]
+      if (!isSameMessageList(messages.value, nextMessages)) {
+        messages.value = nextMessages
+        if (shouldStickToBottom) await scrollMessagesToBottom()
+      }
+    }
   } catch (error) {
     // 新增聊天模块后若浏览器仍连接到旧的后端进程，先维持空会话界面，避免点击好友时反复报错。
     if (error.status === 404) {
@@ -311,8 +377,105 @@ const loadMessages = async friend => {
     }
     ElMessage.error(error.message || '聊天记录加载失败')
   } finally {
-    loadingMessages.value = false
+    if (!silent) loadingMessages.value = false
   }
+}
+
+const appendMessage = async message => {
+  if (!message || messages.value.some(item => String(item.id) === String(message.id))) return
+  messages.value.push(message)
+  await scrollMessagesToBottom()
+}
+
+const handleIncomingMessage = message => {
+  if (!message?.mine && receivedMessageIds.has(String(message.id))) return
+  if (!message?.mine) receivedMessageIds.add(String(message.id))
+  const friendPublicId = message?.mine ? message?.receiver?.publicId : message?.sender?.publicId
+  const friend = friends.value.find(item => item.publicId === friendPublicId)
+  if (friend) {
+    friend.preview = message.content
+    friend.time = formatMessageTime(message.createdAt)
+    if (!message.mine && selectedFriend.value?.publicId !== friendPublicId) {
+      friend.unreadCount += 1
+    }
+  }
+  if (selectedFriend.value?.publicId === friendPublicId) {
+    if (message.mine) {
+      const pendingIndex = messages.value.findIndex(item => (
+        item.clientMessageId && item.clientMessageId === message.clientMessageId
+      ))
+      if (message.clientMessageId) clearMessageTimeout(message.clientMessageId)
+      if (pendingIndex >= 0) messages.value.splice(pendingIndex, 1, { ...message, deliveryStatus: 'sent' })
+      else appendMessage(message)
+    } else {
+      appendMessage(message)
+    }
+  }
+  if (!message.mine && selectedFriend.value?.publicId === friendPublicId) {
+    markChatMessagesRead(friendPublicId).catch(error => {
+      console.error('标记聊天消息已读失败', error)
+    })
+  }
+}
+
+const clearMessageTimeout = clientMessageId => {
+  const timeout = messageTimeouts.get(clientMessageId)
+  if (timeout) window.clearTimeout(timeout)
+  messageTimeouts.delete(clientMessageId)
+}
+
+const armMessageTimeout = clientMessageId => {
+  clearMessageTimeout(clientMessageId)
+  messageTimeouts.set(clientMessageId, window.setTimeout(() => {
+    const message = messages.value.find(item => item.clientMessageId === clientMessageId)
+    if (message?.deliveryStatus === 'sending') message.deliveryStatus = 'failed'
+    messageTimeouts.delete(clientMessageId)
+  }, MESSAGE_TIMEOUT_MS))
+}
+
+const createClientMessageId = () => (
+  globalThis.crypto?.randomUUID?.()
+  || `${Date.now()}-${Math.random().toString(16).slice(2)}`
+)
+
+const deliverMessage = async message => {
+  message.deliveryStatus = 'sending'
+  if (isChatSocketConnected()) {
+    sendChatSocketMessage(message.receiver.publicId, message.content, message.clientMessageId)
+    armMessageTimeout(message.clientMessageId)
+    return
+  }
+  try {
+    const savedMessage = await sendChatMessage(
+      message.receiver.publicId,
+      message.content,
+      message.clientMessageId
+    )
+    handleIncomingMessage(savedMessage)
+  } catch (error) {
+    message.deliveryStatus = 'failed'
+    throw error
+  }
+}
+
+const retryMessage = async message => {
+  try {
+    await deliverMessage(message)
+  } catch (error) {
+    ElMessage.error(error.message || '消息重发失败')
+  }
+}
+
+const handleReadReceipt = receipt => {
+  if (!receipt?.readerPublicId || !receipt.lastReadMessageId) return
+  if (selectedFriend.value?.publicId !== receipt.readerPublicId) return
+  messages.value = messages.value.map(message => (
+    message.mine
+    && Number.isFinite(Number(message.id))
+    && Number(message.id) <= Number(receipt.lastReadMessageId)
+      ? { ...message, readAt: receipt.readAt }
+      : message
+  ))
 }
 
 const handleSendMessage = async () => {
@@ -320,14 +483,47 @@ const handleSendMessage = async () => {
   if (!content || !selectedFriend.value || sendingMessage.value) return
   sendingMessage.value = true
   try {
-    const message = await sendChatMessage(selectedFriend.value.publicId, content)
-    messages.value.push(message)
+    const clientMessageId = createClientMessageId()
+    const pendingMessage = {
+      id: `pending-${clientMessageId}`,
+      clientMessageId,
+      sender: null,
+      receiver: { publicId: selectedFriend.value.publicId },
+      content,
+      createdAt: new Date().toISOString(),
+      mine: true,
+      deliveryStatus: 'sending'
+    }
+    await appendMessage(pendingMessage)
+    await deliverMessage(pendingMessage)
     draft.value = ''
-    await scrollMessagesToBottom()
   } catch (error) {
     ElMessage.error(error.message || '消息发送失败')
   } finally {
     sendingMessage.value = false
+  }
+}
+
+const refreshUnreadCounts = async () => {
+  const result = await listChatUnreadCounts()
+  const unreadCounts = new Map(
+    (Array.isArray(result) ? result : []).map(item => [item.friendPublicId, Number(item.unreadCount) || 0])
+  )
+  friends.value.forEach(friend => {
+    friend.unreadCount = selectedFriend.value?.publicId === friend.publicId
+      ? 0
+      : (unreadCounts.get(friend.publicId) || 0)
+  })
+}
+
+const handleChatReconnect = async () => {
+  try {
+    await Promise.all([
+      loadMessages(selectedFriend.value, { silent: true }),
+      refreshUnreadCounts()
+    ])
+  } catch (error) {
+    console.error('聊天重连同步失败', error)
   }
 }
 
@@ -362,8 +558,33 @@ const handleSendRequest = async () => {
   }
 }
 
-watch(selectedFriend, loadMessages)
-onMounted(() => Promise.all([loadFriends(), loadReceivedRequests()]))
+watch(selectedFriend, async friend => {
+  // 打开会话即清除本次页面会话期间累计的未读提示。
+  if (friend) friend.unreadCount = 0
+  messages.value = []
+  loadMessages(friend)
+  if (friend) {
+    try {
+      await markChatMessagesRead(friend.publicId)
+    } catch (error) {
+      console.error('标记聊天消息已读失败', error)
+    }
+  }
+})
+onMounted(async () => {
+  connectChatSocket({
+    onMessage: handleIncomingMessage,
+    onReadReceipt: handleReadReceipt,
+    onConnectionChange: connected => { chatConnected.value = connected },
+    onReconnect: handleChatReconnect
+  })
+  await Promise.all([loadFriends(), loadReceivedRequests()])
+})
+onBeforeUnmount(() => {
+  messageTimeouts.forEach(timeout => window.clearTimeout(timeout))
+  messageTimeouts.clear()
+  disconnectChatSocket()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -406,7 +627,9 @@ h2 { margin-bottom:5px; color:$text-main; font-size:24px; }
 .friend-item__top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .friend-item strong { overflow:hidden; color:$text-main; font-size:14px; text-overflow:ellipsis; white-space:nowrap; }
 .friend-item time,.friend-item__message { color:$text-secondary; font-size:12px; }
-.friend-item__message { display:block; overflow:hidden; margin-top:5px; text-overflow:ellipsis; white-space:nowrap; }
+.friend-item__bottom { display:flex; min-width:0; align-items:center; gap:8px; margin-top:5px; }
+.friend-item__message { display:block; min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.friend-item__unread { display:grid; min-width:19px; height:19px; flex:0 0 auto; padding:0 5px; place-items:center; border-radius:10px; color:#fff; background:#ef6b6b; font-size:10px; font-weight:700; line-height:1; }
 .friend-public-id { display:block; margin-top:3px; color:$text-secondary; font-size:11px; font-variant-numeric:tabular-nums; }
 .friend-list__empty { display:grid; padding:52px 16px; place-items:center; color:$text-secondary; text-align:center; }
 .friend-list__empty .el-icon { color:$primary-color; font-size:36px; }
@@ -416,14 +639,19 @@ h2 { margin-bottom:5px; color:$text-main; font-size:24px; }
 .chat-user h3 { margin-bottom:4px; color:$text-main; font-size:17px; }
 .chat-user p { margin:0; color:$text-secondary; font-size:12px; }
 .online-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:$primary-color; }
+.online-dot.offline { background:#d9a441; }
 .chat-content { display:flex; flex:1; min-height:260px; overflow-y:auto; padding:26px; background:linear-gradient(180deg,rgba(247,252,247,.72),#fff 35%); }
 .chat-tip { position:absolute; align-self:start; padding:7px 12px; border-radius:999px; color:$text-secondary; background:rgba(102,194,138,.12); font-size:12px; }
 .chat-placeholder { display:grid; width:100%; align-self:center; place-items:center; color:$text-secondary; text-align:center; }
 .chat-placeholder .el-icon { color:$primary-color; font-size:44px; }
 .message-list { display:flex; width:100%; align-self:flex-end; flex-direction:column; gap:12px; }
+.message-time-divider { align-self:center; padding:3px 10px; border-radius:999px; color:$text-secondary; background:rgba(245,248,245,.94); font-size:12px; line-height:1.4; }
 .message-row { display:flex; max-width:76%; align-items:flex-end; gap:8px; }.message-row.mine { align-self:flex-end; flex-direction:row-reverse; }
-.message-bubble { padding:9px 12px 6px; border-radius:14px 14px 14px 3px; color:$text-main; background:#fff; box-shadow:0 2px 10px rgba(62,126,85,.08); }.message-row.mine .message-bubble { border-radius:14px 14px 3px 14px; color:#fff; background:$primary-color; }
-.message-bubble p { margin:0; line-height:1.6; white-space:pre-wrap; word-break:break-word; }.message-bubble time { display:block; margin-top:4px; opacity:.7; font-size:10px; text-align:right; }
+.message-body { display:flex; min-width:0; flex-direction:column; align-items:flex-start; }.message-row.mine .message-body { align-items:flex-end; }
+.message-bubble { padding:10px 13px; border-radius:14px 14px 14px 3px; color:$text-main; background:#fff; box-shadow:0 2px 10px rgba(62,126,85,.08); }.message-row.mine .message-bubble { border-radius:14px 14px 3px 14px; color:#fff; background:$primary-color; }
+.message-bubble p { margin:0; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+.message-read-state { margin-top:4px; color:$text-secondary; font-size:10px; }
+.message-retry { margin-top:4px; padding:0; border:0; color:#e45b5b; background:transparent; font-size:10px; cursor:pointer; }
 .chat-editor { padding:12px 22px 16px; border-top:1px solid rgba(102,194,138,.14); }
 .editor-tools { display:flex; gap:16px; margin:0 0 9px 4px; color:$text-regular; font-size:20px; }
 .chat-editor :deep(.el-textarea__inner) { border-radius:12px; }

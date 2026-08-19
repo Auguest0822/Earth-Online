@@ -19,6 +19,7 @@ public record SendChatMessageRequest(
 
 public record SendChatMessageRequest(
         @NotBlank @Pattern(regexp = "\\d{10}") String recipientPublicId,
-        @NotBlank @Size(max = 500) String content
+        @NotBlank @Size(max = 500) String content,
+        @Size(max = 64) String clientMessageId
 ) {
 }

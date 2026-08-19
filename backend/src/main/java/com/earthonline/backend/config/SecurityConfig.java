@@ -51,6 +51,7 @@ public class SecurityConfig {
 
         return "OPTIONS".equals(method)
                 || ("GET".equals(method) && "/api/health".equals(uri))
+                || ("GET".equals(method) && "/ws/chat".equals(uri))
                 || ("POST".equals(method) && "/api/auth/login".equals(uri))
                 || ("POST".equals(method) && "/api/auth/register".equals(uri));
     }

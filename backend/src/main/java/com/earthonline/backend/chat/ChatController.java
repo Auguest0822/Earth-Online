@@ -1,6 +1,8 @@
 package com.earthonline.backend.chat;
 
 import com.earthonline.backend.chat.dto.ChatMessageResponse;
+import com.earthonline.backend.chat.dto.ChatReadReceiptResponse;
+import com.earthonline.backend.chat.dto.ChatUnreadCountResponse;
 import com.earthonline.backend.chat.dto.SendChatMessageRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
@@ -50,5 +52,18 @@ public class ChatController {
             Authentication authentication
     ) {
         return chatService.sendMessage(authentication.getName(), request);
+    }
+
+    @GetMapping("/unread-counts")
+    public List<ChatUnreadCountResponse> getUnreadCounts(Authentication authentication) {
+        return chatService.getUnreadCounts(authentication.getName());
+    }
+
+    @PostMapping("/messages/read")
+    public ChatReadReceiptResponse markMessagesRead(
+            @RequestParam @Pattern(regexp = "\\d{10}") String friendPublicId,
+            Authentication authentication
+    ) {
+        return chatService.markConversationRead(authentication.getName(), friendPublicId);
     }
 }

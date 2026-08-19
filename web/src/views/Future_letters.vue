@@ -218,8 +218,6 @@ import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createFutureLetter, listFutureLetters } from '@/api/modules/futureLetters'
 
-const futureLettersSource = 'api'
-
 const moodOptions = ['期待', '平静', '勇敢', '迷茫', '快乐']
 // 未来信件属于业务数据，默认从真实后端读取；新闻页才保留 Mock/API 切换。
 const futureLettersSource = 'api'

@@ -226,6 +226,7 @@ export const useProfileStore = defineStore('profile', {
             slogan: user.slogan,
             birthDate: user.birthDate
           }
+          saveUserInfo(this.userInfo)
           this.timelines = (records.items || records).map(toTimeline).sort(sortTimelinesByDateDesc)
           this.eventsData = buildEventsData(this.timelines)
           this.moodTrend = buildMoodTrend(this.timelines)

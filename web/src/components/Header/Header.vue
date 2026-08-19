@@ -5,7 +5,7 @@
         <div class="user-profile">
           <img :src="profileStore.userInfo?.avatar || avatarPlaceholder" class="avatar" />
           <div class="user-info">
-            <div class="user-line" :title="profileStore.userInfo?.nickname">
+            <div class="user-line" :title="profileStore.userInfo?.username">
               <span class="name">{{ displayName }}</span>
             </div>
           </div>
@@ -38,7 +38,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useProfileStore } from '@/stores/profile'
 import { useRouter } from 'vue-router'
 import { logout } from '@/api/modules/auth'
@@ -59,6 +59,14 @@ const handleCommand = (command) => {
     router.replace('/login')
   }
 }
+
+// 页面刷新时 Pinia 会重新初始化。这里重新向后端获取当前登录用户，
+// 避免 Header 继续展示旧的本地默认资料。
+onMounted(() => {
+  profileStore.fetchProfileData().catch((error) => {
+    console.warn('[Earth Online] failed to load current user for header:', error)
+  })
+})
 </script>
 
 <style lang="scss" scoped>
