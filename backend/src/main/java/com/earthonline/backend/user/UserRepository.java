@@ -12,4 +12,6 @@ public interface UserRepository
     boolean existsByPublicId(String publicId);
 
     Optional<UserEntity> findByUsername(String username);
+
+    Optional<UserEntity> findByPublicId(String publicId);
 }

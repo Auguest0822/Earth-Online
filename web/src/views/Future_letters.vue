@@ -218,8 +218,11 @@ import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createFutureLetter, listFutureLetters } from '@/api/modules/futureLetters'
 
+const futureLettersSource = 'api'
+
 const moodOptions = ['期待', '平静', '勇敢', '迷茫', '快乐']
-const futureLettersSource = import.meta.env.VITE_FUTURE_LETTERS_DATA_SOURCE || 'mock'
+// 未来信件属于业务数据，默认从真实后端读取；新闻页才保留 Mock/API 切换。
+const futureLettersSource = 'api'
 const datePresets = [
   { label: '明天', days: 1 },
   { label: '一个月后', days: 30 },
@@ -282,32 +285,7 @@ const form = reactive({
   allowEditBeforeOpen: true
 })
 
-const capsules = ref([
-  {
-    id: 1,
-    title: '写给一年后的自己',
-    excerpt: '希望你仍然记得现在选择出发的原因。',
-    openAt: getFutureDate(128),
-    status: 'sealed',
-    action: '等待中'
-  },
-  {
-    id: 2,
-    title: '毕业旅行后的留言',
-    excerpt: '那段路很自由，也让我知道自己可以独自完成很多事。',
-    openAt: '2025-06-02',
-    status: 'opened',
-    action: '打开信件'
-  },
-  {
-    id: 3,
-    title: '还没写完的夜晚',
-    excerpt: '今天只写了一半，剩下的话想等心情更清楚一点。',
-    openAt: getFutureDate(60),
-    status: 'draft',
-    action: '继续编辑'
-  }
-])
+const capsules = ref([])
 
 const activeFilter = ref('all')
 const tagEditing = ref(false)
@@ -449,8 +427,8 @@ onMounted(async () => {
       action: letter.status === 'sealed' ? '等待中' : letter.status
     }))
   } catch (error) {
-    // 后端未来信件接口尚未实现时，保留页面内置的演示数据。
-    console.warn('[Earth Online] future letters API unavailable; using demo data', error)
+    capsules.value = []
+    ElMessage.error(error.message || '未来信件加载失败')
   }
 })
 </script>
