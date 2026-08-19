@@ -52,4 +52,20 @@ public class UploadController {
                 "previewUrl", storageService.getAvatarPreviewUrl(username, objectKey)
         );
     }
+
+    @PostMapping(
+            value = "/chat-images",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public Map<String, String> uploadChatImage(
+            Authentication authentication,
+            @RequestParam("file") MultipartFile file
+    ) {
+        String username = authentication.getName();
+        String objectKey = storageService.uploadChatImage(username, file);
+        return Map.of(
+                "objectKey", objectKey,
+                "previewUrl", storageService.getChatImagePreviewUrl(username, objectKey)
+        );
+    }
 }

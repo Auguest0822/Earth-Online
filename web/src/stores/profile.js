@@ -1,54 +1,11 @@
 import { defineStore } from 'pinia'
-import { getProfileData } from '../mock/index'
-import { getAppDataSource } from '../api/config'
 import { createRecord, deleteRecord, listRecords, updateRecord } from '../api/modules/records'
 import { getCurrentUser } from '../api/modules/auth'
 import { updateProfile } from '../api/modules/profile'
+import { listFutureLetters } from '../api/modules/futureLetters'
 
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
-const USER_INFO_STORAGE_KEY = 'earth-online:user-info'
-
-const loadSavedUserInfo = () => {
-  if (typeof window === 'undefined') return null
-
-  try {
-    const raw = window.localStorage.getItem(USER_INFO_STORAGE_KEY)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
-}
-
-const saveUserInfo = (userInfo) => {
-  if (typeof window === 'undefined') return
-
-  const savedUserInfo = {
-    publicId: userInfo.publicId,
-    avatar: userInfo.avatar,
-    username: userInfo.username,
-    email: userInfo.email,
-    slogan: userInfo.slogan,
-    birthDate: userInfo.birthDate
-  }
-
-  try {
-    window.localStorage.setItem(USER_INFO_STORAGE_KEY, JSON.stringify(savedUserInfo))
-  } catch {
-    const { avatar, ...fallbackUserInfo } = savedUserInfo
-    try {
-      window.localStorage.setItem(USER_INFO_STORAGE_KEY, JSON.stringify(fallbackUserInfo))
-    } catch {
-      // 本地存储失败时，仍保留当前页面内的资料更新。
-    }
-  }
-}
-
-const clearSavedUserInfo = () => {
-  if (typeof window === 'undefined') return
-  window.localStorage.removeItem(USER_INFO_STORAGE_KEY)
-}
-
 const isLeapYear = (year) => {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
 }
@@ -189,7 +146,7 @@ const toTimeline = (record) => ({
 
 export const useProfileStore = defineStore('profile', {
   state: () => ({
-    userInfo: loadSavedUserInfo(),
+    userInfo: null,
     timelines: [],
     eventsData: [],
     moodTrend: [],
@@ -201,7 +158,6 @@ export const useProfileStore = defineStore('profile', {
   },
   actions: {
     clearUserSession() {
-      clearSavedUserInfo()
       this.userInfo = null
       this.timelines = []
       this.eventsData = []
@@ -210,124 +166,66 @@ export const useProfileStore = defineStore('profile', {
       this.futureLetters = []
     },
     async fetchProfileData() {
-      const source = getAppDataSource()
-      if (source !== 'mock') {
-        try {
-          const [user, records] = await Promise.all([
-            getCurrentUser(), listRecords({ page: 1, pageSize: 100 })
-          ])
-          this.userInfo = {
-            ...(this.userInfo || {}),
-            id: user.id,
-            publicId: user.publicId,
-            username: user.username,
-            email: user.email,
-            avatar: user.avatar,
-            slogan: user.slogan,
-            birthDate: user.birthDate
-          }
-          saveUserInfo(this.userInfo)
-          this.timelines = (records.items || records).map(toTimeline).sort(sortTimelinesByDateDesc)
-          this.eventsData = buildEventsData(this.timelines)
-          this.moodTrend = buildMoodTrend(this.timelines)
-          this.keywords = buildKeywordCloud(this.timelines)
-          this.futureLetters = []
-          return { userInfo: this.userInfo, timelines: this.timelines }
-        } catch (error) {
-          if (source === 'api') throw error
-          console.warn('[Earth Online] business API unavailable, using mock data:', error)
-        }
+      const [user, records, futureLetters] = await Promise.all([
+        getCurrentUser(),
+        listRecords({ page: 1, pageSize: 100 }),
+        listFutureLetters()
+      ])
+      this.userInfo = {
+        id: user.id,
+        publicId: user.publicId,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar,
+        slogan: user.slogan,
+        birthDate: user.birthDate
       }
-
-      return new Promise(resolve => {
-        setTimeout(() => {
-          const data = getProfileData()
-          const savedUserInfo = loadSavedUserInfo()
-          this.userInfo = {
-            ...data.userInfo,
-            ...(savedUserInfo || {}),
-            ...(this.userInfo || {})
-          }
-          this.timelines = data.timelines
-          this.eventsData = data.eventsData
-          this.moodTrend = data.moodTrend
-          this.keywords = data.keywords
-          this.futureLetters = data.futureLetters
-          resolve(data)
-        }, 500)
-      })
-    },
-    async fetchMockTimelineData() {
-      const data = getProfileData()
-      this.timelines = data.timelines
-      this.eventsData = data.eventsData
-      this.moodTrend = data.moodTrend
-      this.keywords = data.keywords
-      this.futureLetters = data.futureLetters
-      return data
+      this.timelines = (records.items || records).map(toTimeline).sort(sortTimelinesByDateDesc)
+      this.eventsData = buildEventsData(this.timelines)
+      this.moodTrend = buildMoodTrend(this.timelines)
+      this.keywords = buildKeywordCloud(this.timelines)
+      this.futureLetters = futureLetters.items || futureLetters
+      return { userInfo: this.userInfo, timelines: this.timelines }
     },
     async addTimeline(timeline) {
-      const source = getAppDataSource()
       const payload = {
         id: timeline.id || `t-${Date.now()}`,
         ...timeline
       }
       this.timelines.push(payload)
       this.timelines.sort(sortTimelinesByDateDesc)
-      if (source !== 'mock') {
-        try {
-          const saved = await createRecord(toRecordPayload(timeline))
-          this.timelines = this.timelines.map(item => item.id === payload.id ? toTimeline(saved) : item)
-          this.keywords = buildKeywordCloud(this.timelines)
-          this.eventsData = buildEventsData(this.timelines)
-          this.moodTrend = buildMoodTrend(this.timelines)
-        } catch (error) {
-          if (source === 'api') this.timelines = this.timelines.filter(item => item.id !== payload.id)
-          if (source === 'api') throw error
-          console.warn('[Earth Online] record create fallback:', error)
-        }
+      try {
+        const saved = await createRecord(toRecordPayload(timeline))
+        this.timelines = this.timelines.map(item => item.id === payload.id ? toTimeline(saved) : item)
+        this.keywords = buildKeywordCloud(this.timelines)
+        this.eventsData = buildEventsData(this.timelines)
+        this.moodTrend = buildMoodTrend(this.timelines)
+      } catch (error) {
+        this.timelines = this.timelines.filter(item => item.id !== payload.id)
+        throw error
       }
       return payload
     },
     async updateTimeline(timeline) {
-      const index = this.timelines.findIndex(t => t.id === timeline.id)
-      if (index !== -1) {
-        this.timelines[index] = { ...this.timelines[index], ...timeline }
-        this.timelines.sort(sortTimelinesByDateDesc)
-      }
-      if (getAppDataSource() !== 'mock') {
-        const saved = await updateRecord(timeline.id, toRecordPayload(timeline))
-        this.timelines = this.timelines.map(item => item.id === timeline.id ? toTimeline(saved) : item)
-        this.keywords = buildKeywordCloud(this.timelines)
-        this.eventsData = buildEventsData(this.timelines)
-        this.moodTrend = buildMoodTrend(this.timelines)
-      }
+      const saved = await updateRecord(timeline.id, toRecordPayload(timeline))
+      this.timelines = this.timelines.map(item => item.id === timeline.id ? toTimeline(saved) : item)
+      this.keywords = buildKeywordCloud(this.timelines)
+      this.eventsData = buildEventsData(this.timelines)
+      this.moodTrend = buildMoodTrend(this.timelines)
     },
     async deleteTimeline(id) {
+      await deleteRecord(id)
       this.timelines = this.timelines.filter(t => t.id !== id)
       this.keywords = buildKeywordCloud(this.timelines)
       this.eventsData = buildEventsData(this.timelines)
       this.moodTrend = buildMoodTrend(this.timelines)
-      if (getAppDataSource() !== 'mock') await deleteRecord(id)
     },
     async updateUserInfo(userInfo) {
-  const source = getAppDataSource()
-
-  if (source !== 'mock') {
-    const saved = await updateProfile(userInfo)
-
-    this.userInfo = {
-      ...(this.userInfo || {}),
-      ...saved
-    }
-  } else {
-    this.userInfo = {
-      ...(this.userInfo || {}),
-      ...userInfo
-    }
+  const saved = await updateProfile(userInfo)
+  this.userInfo = {
+    ...(this.userInfo || {}),
+    ...saved
   }
-
-  saveUserInfo(this.userInfo)
 }
   }
 })

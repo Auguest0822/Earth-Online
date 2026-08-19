@@ -51,8 +51,10 @@
         <div class="event-list">
           <div
             class="event-card"
+            :class="{ 'search-highlight': highlightedRecordId === String(item.id) }"
             v-for="item in group.items"
             :key="item.id"
+            :id="`record-${item.id}`"
             role="button"
             tabindex="0"
             @click="openDetail(item)"
@@ -242,7 +244,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, nextTick, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProfileStore } from '@/stores/profile'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -250,7 +252,8 @@ import { uploadRecordImage } from '@/api/modules/uploads'
 import recordBanner from '@/assets/picture/timeline-record-banner.png'
 
 const props = defineProps({
-  timelines: Array
+  timelines: Array,
+  targetRecordId: { type: String, default: '' }
 })
 
 const profileStore = useProfileStore()
@@ -259,6 +262,27 @@ const selectedYear = ref('all')
 const photoInput = ref(null)
 const detailVisible = ref(false)
 const selectedItem = ref(null)
+const highlightedRecordId = ref('')
+let highlightTimer = null
+
+watch(
+  () => [props.targetRecordId, props.timelines?.length],
+  async ([recordId]) => {
+    if (!recordId) return
+    selectedYear.value = 'all'
+    await nextTick()
+    const element = document.getElementById(`record-${recordId}`)
+    if (!element) return
+    highlightedRecordId.value = String(recordId)
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (highlightTimer) window.clearTimeout(highlightTimer)
+    highlightTimer = window.setTimeout(() => { highlightedRecordId.value = '' }, 3000)
+  },
+  { immediate: true }
+)
+onBeforeUnmount(() => {
+  if (highlightTimer) window.clearTimeout(highlightTimer)
+})
 
 const getToday = () => {
   const today = new Date()
@@ -594,6 +618,12 @@ const removePhoto = (index) => {
   border-radius: 14px;
   padding: 18px 20px;
   transition: all 0.25s ease;
+
+  &.search-highlight {
+    border-color: $primary-color;
+    background: rgba(102,194,138,.1);
+    box-shadow: 0 0 0 4px rgba(102,194,138,.14), 0 8px 22px rgba(62,126,85,.12);
+  }
 
   &:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,0.05);

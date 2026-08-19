@@ -95,7 +95,17 @@
               <p><span class="online-dot" :class="{ offline: !chatConnected }"></span> {{ chatConnected ? '实时连接' : '正在重连…' }}</p>
             </div>
           </div>
-          <el-button text circle :icon="MoreFilled" title="更多操作" />
+          <el-popconfirm
+            width="240"
+            title="删除好友后将无法继续聊天，历史消息会保留。确定删除吗？"
+            confirm-button-text="删除"
+            cancel-button-text="取消"
+            @confirm="handleRemoveFriend"
+          >
+            <template #reference>
+              <el-button text type="danger" :loading="removingFriend">删除好友</el-button>
+            </template>
+          </el-popconfirm>
         </header>
 
         <div ref="chatContent" class="chat-content">
@@ -112,7 +122,17 @@
               <article class="message-row" :class="{ mine: message.mine }">
                 <Avatar v-if="!message.mine" :user="message.sender" size="small" />
                 <div class="message-body">
-                  <div class="message-bubble"><p>{{ message.content }}</p></div>
+                  <el-image
+                    v-if="message.messageType === 'IMAGE'"
+                    class="message-image"
+                    :src="message.imageUrl"
+                    :preview-src-list="message.imageUrl ? [message.imageUrl] : []"
+                    fit="cover"
+                    preview-teleported
+                  >
+                    <template #error><span class="message-image__error">图片暂时无法加载</span></template>
+                  </el-image>
+                  <div v-else class="message-bubble"><p>{{ message.content }}</p></div>
                   <button
                     v-if="message.mine && message.deliveryStatus === 'failed'"
                     type="button"
@@ -129,7 +149,14 @@
         </div>
 
         <footer class="chat-editor">
-          <div class="editor-tools"><el-icon><ChatDotRound /></el-icon><el-icon><Picture /></el-icon></div>
+          <div class="editor-tools">
+            <el-icon><ChatDotRound /></el-icon>
+            <button type="button" title="发送图片" :disabled="uploadingImage" @click="chatImageInput?.click()">
+              <el-icon><Picture /></el-icon>
+            </button>
+            <span v-if="uploadingImage">图片上传中…</span>
+            <input ref="chatImageInput" type="file" accept="image/jpeg,image/png,image/webp" hidden @change="handleChatImageSelect" />
+          </div>
           <el-input v-model="draft" type="textarea" :rows="3" resize="none" maxlength="500" show-word-limit placeholder="输入想对好友说的话…" @keyup.enter.exact.prevent="handleSendMessage" />
           <div class="editor-footer">
             <span>按 Enter 发送，Shift + Enter 换行。</span>
@@ -150,9 +177,10 @@
 <script setup>
 import { defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { ChatDotRound, MoreFilled, Picture, Search, UserFilled } from '@element-plus/icons-vue'
-import { acceptFriendRequest, listFriends, listReceivedFriendRequests, rejectFriendRequest, searchFriendByPublicId, sendFriendRequest } from '@/api/modules/friends'
+import { ChatDotRound, Picture, Search, UserFilled } from '@element-plus/icons-vue'
+import { acceptFriendRequest, listFriends, listReceivedFriendRequests, rejectFriendRequest, removeFriend, searchFriendByPublicId, sendFriendRequest } from '@/api/modules/friends'
 import { listChatMessages, listChatUnreadCounts, markChatMessagesRead, sendChatMessage } from '@/api/modules/chat'
+import { uploadChatImage } from '@/api/modules/uploads'
 import { connectChatSocket, disconnectChatSocket, isChatSocketConnected, sendChatSocketMessage } from '@/api/chatSocket'
 
 const avatarColors = [
@@ -220,11 +248,14 @@ const sendingRequest = ref(false)
 const receivedRequests = ref([])
 const loadingReceived = ref(false)
 const processingRequestId = ref(null)
+const removingFriend = ref(false)
 const messages = ref([])
 const loadingMessages = ref(false)
 const sendingMessage = ref(false)
+const uploadingImage = ref(false)
 const chatConnected = ref(false)
 const chatContent = ref(null)
+const chatImageInput = ref(null)
 const messageTimeouts = new Map()
 const receivedMessageIds = new Set()
 const MESSAGE_TIMEOUT_MS = 10000
@@ -315,6 +346,34 @@ const handleRejectRequest = async request => {
   }
 }
 
+const removeFriendFromPage = friendPublicId => {
+  friends.value = friends.value.filter(friend => friend.publicId !== friendPublicId)
+  if (selectedFriend.value?.publicId === friendPublicId) {
+    selectedFriend.value = null
+    messages.value = []
+    draft.value = ''
+  }
+  if (searchResult.value?.publicId === friendPublicId) {
+    searchResult.value = { ...searchResult.value, relationStatus: 'NONE' }
+  }
+}
+
+const handleRemoveFriend = async () => {
+  const friendPublicId = selectedFriend.value?.publicId
+  if (!friendPublicId || removingFriend.value) return
+  removingFriend.value = true
+  try {
+    await removeFriend(friendPublicId)
+    removeFriendFromPage(friendPublicId)
+    ElMessage.success('已删除好友')
+  } catch (error) {
+    if (error.status === 404) removeFriendFromPage(friendPublicId)
+    ElMessage.error(error.message || '删除好友失败')
+  } finally {
+    removingFriend.value = false
+  }
+}
+
 const formatMessageTime = value => {
   if (!value) return ''
   const date = new Date(value)
@@ -393,7 +452,7 @@ const handleIncomingMessage = message => {
   const friendPublicId = message?.mine ? message?.receiver?.publicId : message?.sender?.publicId
   const friend = friends.value.find(item => item.publicId === friendPublicId)
   if (friend) {
-    friend.preview = message.content
+    friend.preview = message.messageType === 'IMAGE' ? '[图片]' : message.content
     friend.time = formatMessageTime(message.createdAt)
     if (!message.mine && selectedFriend.value?.publicId !== friendPublicId) {
       friend.unreadCount += 1
@@ -441,7 +500,13 @@ const createClientMessageId = () => (
 const deliverMessage = async message => {
   message.deliveryStatus = 'sending'
   if (isChatSocketConnected()) {
-    sendChatSocketMessage(message.receiver.publicId, message.content, message.clientMessageId)
+    sendChatSocketMessage(
+      message.receiver.publicId,
+      message.content,
+      message.clientMessageId,
+      message.messageType,
+      message.imageObjectKey
+    )
     armMessageTimeout(message.clientMessageId)
     return
   }
@@ -449,7 +514,9 @@ const deliverMessage = async message => {
     const savedMessage = await sendChatMessage(
       message.receiver.publicId,
       message.content,
-      message.clientMessageId
+      message.clientMessageId,
+      message.messageType,
+      message.imageObjectKey
     )
     handleIncomingMessage(savedMessage)
   } catch (error) {
@@ -490,6 +557,7 @@ const handleSendMessage = async () => {
       sender: null,
       receiver: { publicId: selectedFriend.value.publicId },
       content,
+      messageType: 'TEXT',
       createdAt: new Date().toISOString(),
       mine: true,
       deliveryStatus: 'sending'
@@ -501,6 +569,46 @@ const handleSendMessage = async () => {
     ElMessage.error(error.message || '消息发送失败')
   } finally {
     sendingMessage.value = false
+  }
+}
+
+const handleChatImageSelect = async event => {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file || !selectedFriend.value || uploadingImage.value) return
+  const recipientPublicId = selectedFriend.value.publicId
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    ElMessage.error('只支持 JPG、PNG、WebP 图片')
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    ElMessage.error('单张图片不能超过 5MB')
+    return
+  }
+
+  uploadingImage.value = true
+  try {
+    const uploaded = await uploadChatImage(file)
+    const clientMessageId = createClientMessageId()
+    const pendingMessage = {
+      id: `pending-${clientMessageId}`,
+      clientMessageId,
+      sender: null,
+      receiver: { publicId: recipientPublicId },
+      content: '[图片]',
+      messageType: 'IMAGE',
+      imageObjectKey: uploaded.objectKey,
+      imageUrl: uploaded.previewUrl,
+      createdAt: new Date().toISOString(),
+      mine: true,
+      deliveryStatus: 'sending'
+    }
+    await appendMessage(pendingMessage)
+    await deliverMessage(pendingMessage)
+  } catch (error) {
+    ElMessage.error(error.message || '图片发送失败')
+  } finally {
+    uploadingImage.value = false
   }
 }
 
@@ -524,6 +632,26 @@ const handleChatReconnect = async () => {
     ])
   } catch (error) {
     console.error('聊天重连同步失败', error)
+  }
+}
+
+const handleFriendEvent = async event => {
+  if (!event?.type || !event.friendPublicId) return
+  if (event.type === 'REMOVED') {
+    removeFriendFromPage(event.friendPublicId)
+    ElMessage.info('一位好友已解除与你的好友关系')
+    return
+  }
+  if (event.type === 'REJECTED') {
+    if (searchResult.value?.publicId === event.friendPublicId) {
+      searchResult.value = { ...searchResult.value, relationStatus: 'NONE' }
+      searchMessage.value = '对方未接受好友申请，你可以稍后重新申请'
+    }
+    return
+  }
+  if (event.type === 'ACCEPTED') {
+    await loadFriends()
+    ElMessage.success('好友申请已通过')
   }
 }
 
@@ -575,6 +703,7 @@ onMounted(async () => {
   connectChatSocket({
     onMessage: handleIncomingMessage,
     onReadReceipt: handleReadReceipt,
+    onFriendEvent: handleFriendEvent,
     onConnectionChange: connected => { chatConnected.value = connected },
     onReconnect: handleChatReconnect
   })
@@ -650,10 +779,13 @@ h2 { margin-bottom:5px; color:$text-main; font-size:24px; }
 .message-body { display:flex; min-width:0; flex-direction:column; align-items:flex-start; }.message-row.mine .message-body { align-items:flex-end; }
 .message-bubble { padding:10px 13px; border-radius:14px 14px 14px 3px; color:$text-main; background:#fff; box-shadow:0 2px 10px rgba(62,126,85,.08); }.message-row.mine .message-bubble { border-radius:14px 14px 3px 14px; color:#fff; background:$primary-color; }
 .message-bubble p { margin:0; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+.message-image { width:min(260px,42vw); height:180px; overflow:hidden; border-radius:14px; background:#f3f6f3; box-shadow:0 2px 10px rgba(62,126,85,.1); cursor:zoom-in; }
+.message-image__error { display:grid; width:100%; height:100%; padding:16px; place-items:center; color:$text-secondary; font-size:12px; }
 .message-read-state { margin-top:4px; color:$text-secondary; font-size:10px; }
 .message-retry { margin-top:4px; padding:0; border:0; color:#e45b5b; background:transparent; font-size:10px; cursor:pointer; }
 .chat-editor { padding:12px 22px 16px; border-top:1px solid rgba(102,194,138,.14); }
-.editor-tools { display:flex; gap:16px; margin:0 0 9px 4px; color:$text-regular; font-size:20px; }
+.editor-tools { display:flex; align-items:center; gap:16px; margin:0 0 9px 4px; color:$text-regular; font-size:20px; }
+.editor-tools button { display:grid; padding:0; border:0; color:inherit; background:transparent; font-size:20px; cursor:pointer; }.editor-tools button:disabled { opacity:.5; cursor:not-allowed; }.editor-tools > span { font-size:11px; }
 .chat-editor :deep(.el-textarea__inner) { border-radius:12px; }
 .editor-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:10px; color:$text-secondary; font-size:12px; }
 .chat-empty { display:grid; height:100%; padding:20px; place-content:center; place-items:center; color:$text-secondary; text-align:center; }

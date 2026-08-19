@@ -3,11 +3,14 @@ package com.earthonline.backend.friends;
 import com.earthonline.backend.friends.dto.FriendSearchResponse;
 import com.earthonline.backend.friends.dto.FriendRequestResponse;
 import com.earthonline.backend.friends.dto.FriendListItemResponse;
+import com.earthonline.backend.friends.dto.FriendEventResponse;
 import com.earthonline.backend.storage.StorageService;
 import com.earthonline.backend.user.UserEntity;
 import com.earthonline.backend.user.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -18,15 +21,18 @@ public class FriendService {
     private final UserRepository userRepository;
     private final StorageService storageService;
     private final FriendRequestRepository friendRequestRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public FriendService(
             UserRepository userRepository,
             StorageService storageService,
-            FriendRequestRepository friendRequestRepository
+            FriendRequestRepository friendRequestRepository,
+            SimpMessagingTemplate messagingTemplate
     ) {
         this.userRepository = userRepository;
         this.storageService = storageService;
         this.friendRequestRepository = friendRequestRepository;
+        this.messagingTemplate = messagingTemplate;
     }
 
     public FriendSearchResponse searchByPublicId(String currentUsername, String publicId) {
@@ -112,6 +118,11 @@ public class FriendService {
         FriendRequestEntity request = findReceivedPendingRequest(currentUsername, requestId);
         request.accept();
         FriendRequestEntity savedRequest = friendRequestRepository.save(request);
+        pushFriendEvent(
+                savedRequest.getSender(),
+                "ACCEPTED",
+                savedRequest.getReceiver().getPublicId()
+        );
         return toRequestResponse(savedRequest, savedRequest.getSender(), FriendRelationStatus.FRIENDS);
     }
 
@@ -119,6 +130,11 @@ public class FriendService {
         FriendRequestEntity request = findReceivedPendingRequest(currentUsername, requestId);
         request.reject();
         FriendRequestEntity savedRequest = friendRequestRepository.save(request);
+        pushFriendEvent(
+                savedRequest.getSender(),
+                "REJECTED",
+                savedRequest.getReceiver().getPublicId()
+        );
         return toRequestResponse(savedRequest, savedRequest.getSender(), FriendRelationStatus.NONE);
     }
 
@@ -146,6 +162,33 @@ public class FriendService {
                     );
                 })
                 .toList();
+    }
+
+    @Transactional
+    public void removeFriend(String currentUsername, String friendPublicId) {
+        UserEntity currentUser = findUserByUsername(currentUsername);
+        UserEntity friend = userRepository.findByPublicId(friendPublicId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "好友不存在"));
+
+        List<FriendRequestEntity> relationships = friendRequestRepository
+                .findRelationshipsBetween(currentUser.getId(), friend.getId());
+        List<FriendRequestEntity> accepted = relationships.stream()
+                .filter(request -> request.getStatus() == FriendRequestStatus.ACCEPTED)
+                .toList();
+        if (accepted.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "好友关系不存在");
+        }
+        accepted.forEach(FriendRequestEntity::reject);
+        friendRequestRepository.saveAll(accepted);
+        pushFriendEvent(friend, "REMOVED", currentUser.getPublicId());
+    }
+
+    private void pushFriendEvent(UserEntity user, String type, String friendPublicId) {
+        messagingTemplate.convertAndSendToUser(
+                user.getUsername(),
+                "/queue/friends/events",
+                new FriendEventResponse(type, friendPublicId)
+        );
     }
 
     private UserEntity findUserByUsername(String username) {

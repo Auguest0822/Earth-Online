@@ -10,3 +10,4 @@ export const sendFriendRequest = publicId => request('/friends/requests', {
 export const listReceivedFriendRequests = () => request('/friends/requests/received')
 export const acceptFriendRequest = id => request(`/friends/requests/${id}/accept`, { method: 'POST' })
 export const rejectFriendRequest = id => request(`/friends/requests/${id}/reject`, { method: 'POST' })
+export const removeFriend = friendPublicId => request(`/friends/${friendPublicId}`, { method: 'DELETE' })

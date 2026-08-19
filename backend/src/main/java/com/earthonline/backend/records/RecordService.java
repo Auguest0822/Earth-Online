@@ -12,6 +12,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.data.domain.PageRequest;
 
 @Service
 public class RecordService {
@@ -34,6 +35,16 @@ public class RecordService {
         Long userId = requireUserId(username);
 
         return recordRepository.findAllByUserId(userId)
+                .stream()
+                .map(entity -> toResponse(entity, username))
+                .toList();
+    }
+
+    public List<RecordResponse> search(String username, String query) {
+        Long userId = requireUserId(username);
+        String normalizedQuery = query == null ? "" : query.trim();
+        if (normalizedQuery.isEmpty()) return List.of();
+        return recordRepository.searchByUser(userId, normalizedQuery, PageRequest.of(0, 20))
                 .stream()
                 .map(entity -> toResponse(entity, username))
                 .toList();
@@ -162,7 +173,7 @@ public class RecordService {
             return null;
         }
 
-        return storageService.getPreviewUrl(photo);
+        return storageService.getPreviewUrlOrNull(photo);
     }
 
     private String normalizeTitle(String title, String content) {

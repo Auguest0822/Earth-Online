@@ -78,11 +78,12 @@
       <aside class="side-stack">
         <section class="future-card module-card">
           <div class="module-title"><div><el-icon><Message /></el-icon><h2>写给未来</h2></div></div>
-          <div class="letter-preview">
+          <div v-if="nextFutureLetter" class="letter-preview">
             <div class="envelope">✉️</div>
-            <div><strong>致未来的自己</strong><span>将在 2027-07-11 开启</span><b>365 <small>天后</small></b></div>
+            <div><strong>{{ nextFutureLetter.title }}</strong><span>将在 {{ formatLetterDate(nextFutureLetter.openAt) }} 开启</span><b>{{ nextFutureLetterDays }} <small>天后</small></b></div>
             <el-button type="success" @click="router.push('/future-letters')">写一封信</el-button>
           </div>
+          <div v-else class="letter-empty">还没有等待开启的信。<el-button type="success" @click="router.push('/future-letters')">写一封信</el-button></div>
         </section>
 
         <section class="year-card module-card">
@@ -91,6 +92,7 @@
             <div><span>记录天数</span><strong>{{ recordDays }} <small>天</small></strong><em>共 {{ profileStore.timelines.length }} 条记录</em></div>
             <div class="mood-chart" aria-label="心情趋势">
               <span v-for="(item, index) in chartPoints" :key="index" :style="{ height: `${item}%` }"></span>
+              <small v-if="!chartPoints.length">暂无心情记录</small>
             </div>
           </div>
         </section>
@@ -146,13 +148,20 @@ const displayName = computed(() => (profileStore.userInfo?.username || '地球�
 const todayText = now.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
 const weekdayText = now.toLocaleDateString('zh-CN', { weekday: 'long' })
 const recentRecords = computed(() => profileStore.timelines.slice(0, 3))
+const nextFutureLetter = computed(() => profileStore.futureLetters
+  .filter(letter => letter.status === 'sealed' && new Date(letter.openAt).getTime() > Date.now())
+  .sort((a, b) => new Date(a.openAt) - new Date(b.openAt))[0] || null)
+const nextFutureLetterDays = computed(() => nextFutureLetter.value
+  ? Math.max(1, Math.ceil((new Date(nextFutureLetter.value.openAt) - Date.now()) / 86400000))
+  : 0)
 const recordDays = computed(() => new Set(profileStore.timelines.map(item => item.date)).size)
 const chartPoints = computed(() => profileStore.moodTrend.length
   ? profileStore.moodTrend.map(item => Math.max(30, Math.round(item.score * 10)))
-  : [48, 60, 54, 72, 64, 82])
+  : [])
 
 const formatDay = value => new Date(value).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }).replace('/', '-')
 const formatYear = value => new Date(value).getFullYear()
+const formatLetterDate = value => new Date(value).toLocaleDateString('zh-CN')
 const getContentPreview = (content, maxLength = 84) => {
   const normalized = String(content || '').replace(/\s+/g, ' ').trim()
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}…` : normalized
@@ -170,17 +179,21 @@ const confirmTag = () => {
   tagDialogVisible.value = false
 }
 const removeTag = tag => { tags.value = tags.value.filter(item => item !== tag) }
-const publishRecord = () => {
+const publishRecord = async () => {
   const date = new Date().toISOString().slice(0, 10)
-  profileStore.addTimeline({
-    date,
-    content: draft.value.trim(),
-    keywords: [...tags.value],
-    moods: [selectedMood.value.icon]
-  })
-  draft.value = ''
-  tags.value = []
-  ElMessage.success('这一刻已经记录下来')
+  try {
+    await profileStore.addTimeline({
+      date,
+      content: draft.value.trim(),
+      keywords: [...tags.value],
+      moods: [selectedMood.value.icon]
+    })
+    draft.value = ''
+    tags.value = []
+    ElMessage.success('这一刻已经记录下来')
+  } catch (error) {
+    ElMessage.error(error.message || '记录保存失败')
+  }
 }
 
 const loadNews = async () => {
@@ -227,8 +240,10 @@ onMounted(async () => {
 .text-link { border:0; color:#43a36b; background:transparent; cursor:pointer; }.full-link { width:100%; padding:10px; background:rgba(102,194,138,.07); border-radius:8px; }
 .letter-preview,.year-summary { display:flex; align-items:center; gap:14px; }.envelope { display:grid; place-items:center; width:88px; height:62px; border-radius:10px; background:#fff5e7; font-size:28px; }
 .letter-preview > div:nth-child(2) { flex:1; }.letter-preview strong,.letter-preview span { display:block; }.letter-preview span { margin-top:4px; color:$text-secondary; font-size:11px; }.letter-preview b { display:block; margin-top:5px; color:#43a36b; font-size:23px; }.letter-preview b small { font-size:11px; font-weight:400; }
+.letter-empty { display:flex; align-items:center; justify-content:space-between; gap:12px; color:$text-secondary; font-size:13px; }
 .year-summary > div:first-child { width:110px; }.year-summary span,.year-summary em { display:block; color:$text-secondary; font-size:11px; font-style:normal; }.year-summary strong { display:block; margin:5px 0; color:#43a36b; font-size:26px; }.year-summary strong small { font-size:11px; }
 .mood-chart { flex:1; height:64px; display:flex; align-items:flex-end; gap:8px; border-bottom:1px solid $border-color; }.mood-chart span { flex:1; min-height:20%; border-radius:5px 5px 0 0; background:linear-gradient(#8bd0a5,#dff2e6); }
+.mood-chart small { align-self:center; margin:auto; color:$text-secondary; font-size:11px; }
 .earth-summary { padding-bottom:16px; }.earth-news-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); min-height:90px; }.earth-news-grid article { display:grid; grid-template-columns:92px 1fr; gap:10px; padding:0 14px; border-left:1px solid $border-color; cursor:pointer; }.earth-news-grid article:first-child { padding-left:0; border-left:0; }.earth-news-grid img { width:92px; height:70px; border-radius:8px; object-fit:cover; }.earth-news-grid span { color:$primary-color; font-size:10px; }.earth-news-grid h3 { display:-webkit-box; overflow:hidden; margin:4px 0; color:$text-main; font-size:12px; line-height:1.4; -webkit-line-clamp:2; -webkit-box-orient:vertical; }.earth-news-grid small { color:$text-secondary; font-size:9px; }
 @media (max-width:1200px) { .composer-actions{align-items:flex-start;flex-direction:column}.dashboard-grid{grid-template-columns:1fr}.earth-news-grid{grid-template-columns:repeat(2,1fr);gap:16px}.earth-news-grid article:nth-child(3){border-left:0} }
 @media (max-width:760px) { .welcome-row{align-items:flex-start;flex-direction:column}.today-card{text-align:left}.mood-row,.publish-actions{flex-wrap:wrap}.side-stack{display:flex;flex-direction:column}.earth-news-grid{grid-template-columns:1fr}.earth-news-grid article{padding:12px 0;border-left:0;border-top:1px solid $border-color} }

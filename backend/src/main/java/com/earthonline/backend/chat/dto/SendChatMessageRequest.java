@@ -1,5 +1,6 @@
 package com.earthonline.backend.chat.dto;
 
+import com.earthonline.backend.chat.ChatMessageType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -19,7 +20,9 @@ public record SendChatMessageRequest(
 
 public record SendChatMessageRequest(
         @NotBlank @Pattern(regexp = "\\d{10}") String recipientPublicId,
-        @NotBlank @Size(max = 500) String content,
-        @Size(max = 64) String clientMessageId
+        @Size(max = 500) String content,
+        @Size(max = 64) String clientMessageId,
+        ChatMessageType messageType,
+        @Size(max = 500) String imageObjectKey
 ) {
 }

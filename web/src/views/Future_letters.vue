@@ -219,8 +219,6 @@ import { ElMessage } from 'element-plus'
 import { createFutureLetter, listFutureLetters } from '@/api/modules/futureLetters'
 
 const moodOptions = ['期待', '平静', '勇敢', '迷茫', '快乐']
-// 未来信件属于业务数据，默认从真实后端读取；新闻页才保留 Mock/API 切换。
-const futureLettersSource = 'api'
 const datePresets = [
   { label: '明天', days: 1 },
   { label: '一个月后', days: 30 },
@@ -374,35 +372,25 @@ const sealCapsule = async () => {
     allowEditBeforeOpen: form.allowEditBeforeOpen,
     status: 'sealed'
   }
-  let savedLetter = {
-    id: Date.now(),
-    title: form.title,
-    excerpt: form.content.slice(0, 36),
-    mood: moodSummary.value,
-    openAt: form.openAt,
-    status: 'sealed',
-    action: '等待中'
-  }
-  if (futureLettersSource === 'api') {
-    try {
-      const saved = await createFutureLetter({
-        title: payload.title,
-        content: payload.content,
-        mood: moodSummary.value,
-        openAt: payload.openAt,
-        status: payload.status,
-        visibility: payload.visibility,
-        allowEditBeforeOpen: payload.allowEditBeforeOpen
-      })
-      savedLetter = {
-        ...saved,
-        excerpt: saved.content?.slice(0, 36),
-        action: '等待中'
-      }
-    } catch (error) {
-      ElMessage.error(error.message || '信件封存失败')
-      return
+  let savedLetter
+  try {
+    const saved = await createFutureLetter({
+      title: payload.title,
+      content: payload.content,
+      mood: moodSummary.value,
+      openAt: payload.openAt,
+      status: payload.status,
+      visibility: payload.visibility,
+      allowEditBeforeOpen: payload.allowEditBeforeOpen
+    })
+    savedLetter = {
+      ...saved,
+      excerpt: saved.content?.slice(0, 36),
+      action: '等待中'
     }
+  } catch (error) {
+    ElMessage.error(error.message || '信件封存失败')
+    return
   }
   capsules.value.unshift(savedLetter)
 
@@ -416,7 +404,6 @@ const sealCapsule = async () => {
 }
 
 onMounted(async () => {
-  if (futureLettersSource !== 'api') return
   try {
     const data = await listFutureLetters({ status: activeFilter.value })
     capsules.value = (data.items || data).map(letter => ({

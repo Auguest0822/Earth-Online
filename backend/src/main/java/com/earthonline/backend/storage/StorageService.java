@@ -51,6 +51,16 @@ public class StorageService {
         return uploadImage(username, file, "avatars");
     }
 
+    public String uploadChatImage(String username, MultipartFile file) {
+        return uploadImage(username, file, "chat");
+    }
+
+    public String getChatImagePreviewUrl(String username, String objectKey) {
+        if (objectKey == null || objectKey.isBlank()) return null;
+        String expectedPrefix = "chat/" + username + "/";
+        return objectKey.startsWith(expectedPrefix) ? getPreviewUrlOrNull(objectKey) : null;
+    }
+
     private String uploadImage(String username, MultipartFile file, String folder) {
         validateImage(file);
 
@@ -111,6 +121,19 @@ public class StorageService {
         }
     }
 
+    /**
+     * Preview URLs are optional presentation data. A stopped MinIO instance must not make
+     * profile, friends, records or chat APIs unavailable.
+     */
+    public String getPreviewUrlOrNull(String objectKey) {
+        try {
+            return getPreviewUrl(objectKey);
+        } catch (ResponseStatusException exception) {
+            log.warn("MinIO preview unavailable for object {}: {}", objectKey, exception.getReason());
+            return null;
+        }
+    }
+
     public String getAvatarPreviewUrl(String username, String objectKey) {
         if (objectKey == null || objectKey.isBlank()) {
             return null;
@@ -120,7 +143,7 @@ public class StorageService {
         }
 
         String expectedPrefix = "avatars/" + username + "/";
-        return objectKey.startsWith(expectedPrefix) ? getPreviewUrl(objectKey) : null;
+        return objectKey.startsWith(expectedPrefix) ? getPreviewUrlOrNull(objectKey) : null;
     }
 
     private void ensureBucketExists() throws Exception {

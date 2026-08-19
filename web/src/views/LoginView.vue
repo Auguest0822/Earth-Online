@@ -18,6 +18,13 @@
 
       <!-- 登录表单 -->
       <form v-if="activeTab === 'login'" class="auth-form" @submit.prevent="handleLogin">
+        <el-alert
+          v-if="route.query.expired === '1'"
+          title="登录状态已过期，请重新登录"
+          type="warning"
+          :closable="false"
+          show-icon
+        />
         <div class="form-item">
           <el-input v-model="loginForm.username" placeholder="请输入用户名" size="large">
             <template #prefix>
@@ -83,12 +90,12 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
-import { useRouter } from 'vue-router'
-import { getAppDataSource } from '@/api/config'
+import { useRoute, useRouter } from 'vue-router'
 import { login, register } from '@/api/modules/auth'
 import { useProfileStore } from '@/stores/profile'
 
 const router = useRouter()
+const route = useRoute()
 const profileStore = useProfileStore()
 const activeTab = ref('login')
 const loginError = ref('')
@@ -112,21 +119,22 @@ const handleLogin = async () => {
     ElMessage.warning('请输入用户名和密码')
     return
   }
-  if (getAppDataSource() !== 'mock') {
-    try {
-      await login({ username: loginForm.username, password: loginForm.password })
-      profileStore.clearUserSession()
-      await profileStore.fetchProfileData()
-    } catch (error) {
-      loginError.value = error.status === 401 || error.status === 403
-        ? '用户名或密码有误'
-        : (error.message || '登录失败')
-      return
-    }
+  try {
+    await login({ username: loginForm.username, password: loginForm.password })
+    profileStore.clearUserSession()
+    await profileStore.fetchProfileData()
+  } catch (error) {
+    loginError.value = error.status === 401 || error.status === 403
+      ? '用户名或密码有误'
+      : (error.message || '登录失败')
+    return
   }
-  ElMessage.success(getAppDataSource() === 'mock' ? '演示模式登录成功' : '登录成功')
+  ElMessage.success('登录成功')
   setTimeout(() => {
-    router.push('/')
+    const requestedRedirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
+    const redirect = requestedRedirect.startsWith('/') && !requestedRedirect.startsWith('/login')
+      ? requestedRedirect : '/'
+    router.push(redirect)
   }, 800)
 }
 
@@ -139,22 +147,20 @@ const handleRegister = async () => {
     ElMessage.warning('两次密码输入不一致')
     return
   }
-  if (getAppDataSource() !== 'mock') {
-    try {
-      await register({
-          username: registerForm.username,
-          password: registerForm.password,
-          email: registerForm.email
-      })
-      await login({ username: registerForm.username, password: registerForm.password })
-      profileStore.clearUserSession()
-      await profileStore.fetchProfileData()
-    } catch (error) {
-      ElMessage.error(error.message || '注册失败')
-      return
-    }
+  try {
+    await register({
+        username: registerForm.username,
+        password: registerForm.password,
+        email: registerForm.email
+    })
+    await login({ username: registerForm.username, password: registerForm.password })
+    profileStore.clearUserSession()
+    await profileStore.fetchProfileData()
+  } catch (error) {
+    ElMessage.error(error.message || '注册失败')
+    return
   }
-  ElMessage.success(getAppDataSource() === 'mock' ? '演示模式注册成功' : '注册成功，已自动登录')
+  ElMessage.success('注册成功，已自动登录')
   setTimeout(() => {
     router.push('/')
   }, 800)

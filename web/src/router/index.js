@@ -58,6 +58,10 @@ const router = createRouter({
 router.beforeEach((to) => {
   const token = getAccessToken()
 
+  if (to.name === 'login' && typeof to.query.redirect === 'string' && to.query.redirect.startsWith('/login')) {
+    return { name: 'login', query: to.query.expired === '1' ? { expired: '1' } : {} }
+  }
+
   if (to.meta.requiresAuth && !token) {
     return { name: 'login' }
   }

@@ -8,9 +8,9 @@ spring:
       max-request-size: 45MB
 
   datasource:
-    url: jdbc:mysql://localhost:3306/earth_online?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    username: root
-    password: 123456
+    url: ${DB_URL:jdbc:mysql://localhost:3306/earth_online?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -21,8 +21,8 @@ spring:
       hibernate:
         format_sql: true
 jwt:
-  secret: earth-online-development-secret-key-please-change-123456
-  expiration-ms: 86400000
+  secret: ${JWT_SECRET}
+  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
 
 juhe:
   news:
@@ -43,8 +43,9 @@ minio:
   secret-key: ${MINIO_SECRET_KEY:}
   bucket: earth-online-records
 
-# 临时开启：用于定位上传接口为何返回 403。问题解决后会删除。
-logging:
-  level:
-    org.springframework.security: TRACE
-    com.earthonline.backend.auth: DEBUG
+deepseek:
+  api-key: ${DEEPSEEK_API_KEY:}
+  base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+  model: ${DEEPSEEK_MODEL:deepseek-chat}
+  connect-timeout-seconds: ${DEEPSEEK_CONNECT_TIMEOUT_SECONDS:10}
+  read-timeout-seconds: ${DEEPSEEK_READ_TIMEOUT_SECONDS:60}

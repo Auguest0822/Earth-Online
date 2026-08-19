@@ -263,18 +263,6 @@ const handleAvatarFile = (uploadFile) => {
 
   avatarFile.value = file
   profileForm.avatar = URL.createObjectURL(file)
-  return
-
-  if (!file.type.startsWith('image/')) {
-    ElMessage.warning('请选择图片文件')
-    return
-  }
-
-  const reader = new FileReader()
-  reader.onload = () => {
-    profileForm.avatar = reader.result
-  }
-  reader.readAsDataURL(file)
 }
 
 const disabledFutureDate = (date) => date.getTime() > Date.now()
@@ -300,16 +288,6 @@ const saveProfile = async () => {
 
     await profileStore.updateUserInfo(payload)
     avatarFile.value = null
-    profileEditorVisible.value = false
-    ElMessage.success('个人资料已更新')
-    return
-
-    await profileStore.updateUserInfo({
-      email,
-      avatar: profileForm.avatar.trim() || profileStore.userInfo.avatar,
-      slogan: profileForm.slogan.trim(),
-      birthDate: profileForm.birthDate || null
-    })
     profileEditorVisible.value = false
     ElMessage.success('个人资料已更新')
   } catch (error) {

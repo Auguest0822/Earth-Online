@@ -5,6 +5,7 @@ import { getAccessToken } from './httpClient'
 const CHAT_ENDPOINT = '/ws/chat'
 const CHAT_QUEUE = '/user/queue/chat/messages'
 const CHAT_READ_RECEIPT_QUEUE = '/user/queue/chat/read-receipts'
+const FRIEND_EVENTS_QUEUE = '/user/queue/friends/events'
 const CHAT_DESTINATION = '/app/chat/messages'
 
 const resolveBrokerUrl = () => {
@@ -19,7 +20,7 @@ const resolveBrokerUrl = () => {
 
 let client = null
 
-export const connectChatSocket = ({ onMessage, onReadReceipt, onConnectionChange, onReconnect }) => {
+export const connectChatSocket = ({ onMessage, onReadReceipt, onFriendEvent, onConnectionChange, onReconnect }) => {
   if (client?.active) return
   let hasConnected = false
 
@@ -50,6 +51,13 @@ export const connectChatSocket = ({ onMessage, onReadReceipt, onConnectionChange
           console.error('无法解析聊天已读回执', error)
         }
       })
+      client.subscribe(FRIEND_EVENTS_QUEUE, frame => {
+        try {
+          onFriendEvent?.(JSON.parse(frame.body))
+        } catch (error) {
+          console.error('无法解析好友状态事件', error)
+        }
+      })
       if (reconnected) onReconnect?.()
     },
     onWebSocketClose: () => onConnectionChange?.(false),
@@ -63,11 +71,11 @@ export const connectChatSocket = ({ onMessage, onReadReceipt, onConnectionChange
 
 export const isChatSocketConnected = () => Boolean(client?.connected)
 
-export const sendChatSocketMessage = (recipientPublicId, content, clientMessageId) => {
+export const sendChatSocketMessage = (recipientPublicId, content, clientMessageId, messageType = 'TEXT', imageObjectKey = null) => {
   if (!client?.connected) return false
   client.publish({
     destination: CHAT_DESTINATION,
-    body: JSON.stringify({ recipientPublicId, content, clientMessageId })
+    body: JSON.stringify({ recipientPublicId, content, clientMessageId, messageType, imageObjectKey })
   })
   return true
 }

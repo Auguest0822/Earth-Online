@@ -3,6 +3,7 @@ package com.earthonline.backend.records;
 import com.earthonline.backend.records.dto.CreateRecordRequest;
 import com.earthonline.backend.records.dto.RecordResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 import java.util.Map;
@@ -29,6 +31,14 @@ public class RecordController {
     @GetMapping
     public List<RecordResponse> list(Authentication authentication) {
         return recordService.list(authentication.getName());
+    }
+
+    @GetMapping("/search")
+    public List<RecordResponse> search(
+            Authentication authentication,
+            @RequestParam @Size(min = 1, max = 50) String query
+    ) {
+        return recordService.search(authentication.getName(), query);
     }
 
     @GetMapping("/{id}")

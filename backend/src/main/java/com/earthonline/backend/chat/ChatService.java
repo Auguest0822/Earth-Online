@@ -138,6 +138,21 @@ public class ChatService {
         UserEntity receiver = findUserByPublicId(request.recipientPublicId());
         requireFriendship(sender, receiver);
 
+        ChatMessageType messageType = request.messageType() == null
+                ? ChatMessageType.TEXT
+                : request.messageType();
+        String content;
+        String imageObjectKey = null;
+        if (messageType == ChatMessageType.IMAGE) {
+            imageObjectKey = validateChatImageObjectKey(sender.getUsername(), request.imageObjectKey());
+            content = "[图片]";
+        } else {
+            if (request.content() == null || request.content().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Message content is required");
+            }
+            content = request.content().trim();
+        }
+
         String clientMessageId = request.clientMessageId() == null
                 ? null
                 : request.clientMessageId().trim();
@@ -159,7 +174,14 @@ public class ChatService {
         }
 
         ChatMessageEntity message = chatMessageRepository.save(
-                new ChatMessageEntity(sender, receiver, request.content().trim(), clientMessageId)
+                new ChatMessageEntity(
+                        sender,
+                        receiver,
+                        content,
+                        clientMessageId,
+                        messageType,
+                        imageObjectKey
+                )
         );
 
         return new ChatDelivery(
@@ -182,6 +204,14 @@ public class ChatService {
         if (!friends) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only friends can chat");
         }
+    }
+
+    private String validateChatImageObjectKey(String username, String objectKey) {
+        String expectedPrefix = "chat/" + username + "/";
+        if (objectKey == null || !objectKey.startsWith(expectedPrefix)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Image must be uploaded first");
+        }
+        return objectKey;
     }
 
     private UserEntity findUserByUsername(String username) {
@@ -211,6 +241,10 @@ public class ChatService {
                 ),
                 message.getContent(),
                 message.getClientMessageId(),
+                message.getMessageType(),
+                message.getMessageType() == ChatMessageType.IMAGE
+                        ? storageService.getChatImagePreviewUrl(sender.getUsername(), message.getImageObjectKey())
+                        : null,
                 message.getCreatedAt(),
                 message.getReadAt(),
                 sender.getId().equals(currentUserId)

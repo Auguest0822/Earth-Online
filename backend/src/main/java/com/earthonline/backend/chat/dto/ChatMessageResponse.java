@@ -1,5 +1,6 @@
 package com.earthonline.backend.chat.dto;
 
+import com.earthonline.backend.chat.ChatMessageType;
 import java.time.LocalDateTime;
 
 public record ChatMessageResponse(
@@ -8,6 +9,8 @@ public record ChatMessageResponse(
         ChatUserResponse receiver,
         String content,
         String clientMessageId,
+        ChatMessageType messageType,
+        String imageUrl,
         LocalDateTime createdAt,
         LocalDateTime readAt,
         boolean mine

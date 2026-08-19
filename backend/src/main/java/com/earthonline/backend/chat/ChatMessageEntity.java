@@ -8,6 +8,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -40,6 +42,13 @@ public class ChatMessageEntity {
     @Column(nullable = false, length = 500)
     private String content;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "message_type", length = 16)
+    private ChatMessageType messageType = ChatMessageType.TEXT;
+
+    @Column(name = "image_object_key", length = 500)
+    private String imageObjectKey;
+
     @Column(name = "client_message_id", length = 64)
     private String clientMessageId;
 
@@ -52,11 +61,20 @@ public class ChatMessageEntity {
     protected ChatMessageEntity() {
     }
 
-    public ChatMessageEntity(UserEntity sender, UserEntity receiver, String content, String clientMessageId) {
+    public ChatMessageEntity(
+            UserEntity sender,
+            UserEntity receiver,
+            String content,
+            String clientMessageId,
+            ChatMessageType messageType,
+            String imageObjectKey
+    ) {
         this.sender = sender;
         this.receiver = receiver;
         this.content = content;
         this.clientMessageId = clientMessageId;
+        this.messageType = messageType;
+        this.imageObjectKey = imageObjectKey;
         this.createdAt = LocalDateTime.now();
     }
 
@@ -65,6 +83,10 @@ public class ChatMessageEntity {
     public UserEntity getReceiver() { return receiver; }
     public String getContent() { return content; }
     public String getClientMessageId() { return clientMessageId; }
+    public ChatMessageType getMessageType() {
+        return messageType == null ? ChatMessageType.TEXT : messageType;
+    }
+    public String getImageObjectKey() { return imageObjectKey; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getReadAt() { return readAt; }
 
