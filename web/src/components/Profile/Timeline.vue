@@ -57,7 +57,7 @@
                 <img :src="profileStore.userInfo?.avatar" class="avatar" />
                 <div class="meta-text">
                   <span class="name">{{ profileStore.userInfo?.username }}</span>
-                  <span class="time">{{ group.year }}-{{ pad2(group.month) }}-{{ pad2(group.day) }}</span>
+                  <span class="time">{{ formatRecordDateTime(item) }}</span>
                 </div>
               </div>
               <el-button
@@ -74,6 +74,10 @@
               <div class="info-row">
                 <span class="label">事记：</span>
                 <span class="value content-preview">{{ getContentPreview(item.content) }}</span>
+              </div>
+              <div class="info-row" v-if="item.eventType">
+                <span class="label">事件类型：</span>
+                <span class="value event-type">{{ item.eventType }}</span>
               </div>
               <div class="info-row" v-if="item.keywords && item.keywords.length">
                 <span class="label">关键词：</span>
@@ -305,6 +309,19 @@ const parseDateParts = (dateStr) => {
 
 const pad2 = (value) => String(value).padStart(2, '0')
 
+const getRecordTimestamp = (item) => {
+  const createdAt = new Date(item?.createdAt).getTime()
+  if (Number.isFinite(createdAt)) return createdAt
+  const recordDate = new Date(item?.date).getTime()
+  return Number.isFinite(recordDate) ? recordDate : 0
+}
+
+const formatRecordDateTime = (item) => {
+  const date = new Date(item?.createdAt)
+  if (Number.isNaN(date.getTime())) return item?.date || ''
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+}
+
 const filteredTimelines = computed(() => {
   if (selectedYear.value === 'all') {
     return props.timelines
@@ -326,9 +343,7 @@ const yearOptions = computed(() => {
 
 const groupedTimelines = computed(() => {
   const groups = new Map()
-  const sorted = [...filteredTimelines.value].sort((a, b) => {
-    return new Date(b.date) - new Date(a.date)
-  })
+  const sorted = [...filteredTimelines.value].sort((a, b) => getRecordTimestamp(b) - getRecordTimestamp(a))
 
   sorted.forEach((item) => {
     const parts = parseDateParts(item.date)
@@ -600,9 +615,14 @@ const removePhoto = (index) => {
   flex-direction: column;
   gap: 16px;
   width: 100%;
+  min-width: 0;
 }
 
 .event-card {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden;
   background: #fdfdfd;
   border: 1px solid $border-color;
   border-radius: 14px;
@@ -662,11 +682,16 @@ const removePhoto = (index) => {
   }
 
   .card-body {
+    min-width: 0;
+
     .info-row {
+      display: flex;
+      min-width: 0;
       margin-bottom: 10px;
       font-size: 14px;
-      .label { color: $text-secondary; width: 70px; display: inline-block; }
-      .value { color: $text-main; }
+      .label { flex: 0 0 76px; color: $text-secondary; }
+      .value { min-width: 0; color: $text-main; overflow-wrap: anywhere; }
+      .event-type { color: $primary-color; }
       
       .keyword {
         margin-right: 12px;
@@ -679,7 +704,7 @@ const removePhoto = (index) => {
     }
 
     .content-preview {
-      display: inline-block;
+      display: block;
       max-width: min(100%, 860px);
       overflow: hidden;
       vertical-align: bottom;
@@ -688,20 +713,25 @@ const removePhoto = (index) => {
     }
 
     .photos {
-      display: grid; grid-template-columns: repeat(3, minmax(0, 96px)); gap: 8px; margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      width: 352px;
+      max-width: 100%;
+      max-height: 352px;
+      margin-top: 16px;
+      overflow: hidden;
       img {
-        width: 96px; height: 76px; object-fit: cover;
+        display: block;
+        width: 100%;
+        min-width: 0;
+        aspect-ratio: 1;
+        object-fit: cover;
         border-radius: 8px;
       }
     }
-    .photos--1 { grid-template-columns: 260px; img { width: 260px; height: 180px; } }
-    .photos--2 { grid-template-columns: repeat(2, 150px); img { width: 150px; height: 120px; } }
-    .photos--3 {
-      grid-template-columns: 1.45fr 1fr;
-      max-width: 330px;
-      img { width: 100%; }
-      img:first-child { grid-row: span 2; height: 160px; }
-    }
+    .photos--1 { grid-template-columns: minmax(0, 1fr); width: 180px; }
+    .photos--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 296px; }
   }
 }
 

@@ -70,6 +70,9 @@
           </div>
         </article>
 
+      </div>
+
+      <aside class="side-column">
         <article class="panel keyword-panel">
           <div class="panel-head">
             <div>
@@ -91,27 +94,6 @@
             <strong>还没有关键词</strong>
             <p>记录生活并添加标签后，这里会生成属于你的关键词云。</p>
             <el-button type="success" plain @click="router.push('/')">去写一条记录</el-button>
-          </div>
-        </article>
-      </div>
-
-      <aside class="side-column">
-        <article class="panel settings-card">
-          <div class="panel-head">
-            <div>
-              <h3>个人设置</h3>
-              <p>维护你的地球档案</p>
-            </div>
-            <el-icon><Setting /></el-icon>
-          </div>
-          <div class="setting-list">
-            <button v-for="item in settingItems" :key="item.label" @click="handleSettingClick(item.action)">
-              <span>
-                <el-icon><component :is="item.icon" /></el-icon>
-                {{ item.label }}
-              </span>
-              <el-icon><ArrowRight /></el-icon>
-            </button>
           </div>
         </article>
 
@@ -226,13 +208,6 @@ const statCards = computed(() => [
 const avatarSrc = computed(() => profileStore.userInfo?.avatar || avatarPlaceholder)
 const avatarPreview = computed(() => profileForm.avatar || avatarSrc.value)
 
-const settingItems = [
-  { label: '编辑头像与昵称', icon: 'User', action: 'editProfile' },
-  { label: '更新个性签名', icon: 'EditPen', action: 'editProfile' },
-  { label: '隐私与展示设置', icon: 'Lock' },
-  { label: '消息提醒', icon: 'Bell' }
-]
-
 const openProfileEditor = () => {
   profileForm.email = profileStore.userInfo?.email || ''
   profileForm.avatar = profileStore.userInfo?.avatar || ''
@@ -240,12 +215,6 @@ const openProfileEditor = () => {
   profileForm.birthDate = profileStore.userInfo?.birthDate || ''
   avatarFile.value = null
   profileEditorVisible.value = true
-}
-
-const handleSettingClick = (action) => {
-  if (action === 'editProfile') {
-    openProfileEditor()
-  }
 }
 
 const handleAvatarFile = (uploadFile) => {

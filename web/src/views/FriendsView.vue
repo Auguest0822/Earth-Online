@@ -171,7 +171,7 @@ import { ChatDotRound, Picture, Search, UserFilled } from '@element-plus/icons-v
 import { acceptFriendRequest, listFriends, listReceivedFriendRequests, rejectFriendRequest, removeFriend, searchFriendByPublicId, sendFriendRequest } from '@/api/modules/friends'
 import { listChatMessages, listChatUnreadCounts, markChatMessagesRead, sendChatMessage } from '@/api/modules/chat'
 import { uploadChatImage } from '@/api/modules/uploads'
-import { connectChatSocket, disconnectChatSocket, isChatSocketConnected, sendChatSocketMessage } from '@/api/chatSocket'
+import { connectChatSocket, disconnectChatSocket } from '@/api/chatSocket'
 
 const avatarColors = [
   'linear-gradient(135deg, #92d7b0, #5ea979)',
@@ -487,17 +487,6 @@ const createClientMessageId = () => (
 
 const deliverMessage = async message => {
   message.deliveryStatus = 'sending'
-  if (isChatSocketConnected()) {
-    sendChatSocketMessage(
-      message.receiver.publicId,
-      message.content,
-      message.clientMessageId,
-      message.messageType,
-      message.imageObjectKey
-    )
-    armMessageTimeout(message.clientMessageId)
-    return
-  }
   try {
     const savedMessage = await sendChatMessage(
       message.receiver.publicId,
@@ -707,7 +696,7 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 @import '@/styles/variables.scss';
 
-.friends-view { display:grid; grid-template-columns:minmax(280px,340px) minmax(0,1fr); min-height:calc(100vh - 116px); overflow:hidden; border:1px solid rgba(102,194,138,.16); border-radius:24px; background:rgba(255,255,255,.88); box-shadow:$shadow-base; }
+.friends-view { display:grid; grid-template-columns:minmax(280px,340px) minmax(0,1fr); height:calc(100vh - 116px); min-height:0; overflow:hidden; border:1px solid rgba(102,194,138,.16); border-radius:24px; background:rgba(255,255,255,.88); box-shadow:$shadow-base; }
 .friend-sidebar { display:flex; min-height:0; flex-direction:column; border-right:1px solid rgba(102,194,138,.16); background:rgba(249,253,249,.9); }
 .friend-sidebar__header { padding:26px 22px 16px; }
 .eyebrow { margin:0 0 6px; color:$primary-color; font-size:12px; font-weight:700; letter-spacing:.08em; }
@@ -778,5 +767,5 @@ h2 { margin-bottom:5px; color:$text-main; font-size:24px; }
 .chat-empty .el-icon { margin-bottom:12px; color:$primary-color; font-size:56px; }
 .chat-empty h3 { margin-bottom:8px; color:$text-main; }
 .chat-empty p { max-width:300px; margin-bottom:0; line-height:1.7; }
-@media (max-width:760px) { .friends-view { grid-template-columns:1fr; min-height:auto; }.friend-sidebar { max-height:440px; border-right:0; border-bottom:1px solid rgba(102,194,138,.16); }.chat-panel { min-height:520px; } }
+@media (max-width:760px) { .friends-view { grid-template-columns:1fr; height:auto; min-height:auto; overflow:visible; }.friend-sidebar { max-height:440px; border-right:0; border-bottom:1px solid rgba(102,194,138,.16); }.chat-panel { min-height:520px; } }
 </style>

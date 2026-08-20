@@ -18,10 +18,10 @@
       >
         <el-icon v-if="item.icon === 'Friends'" class="friends-icon" viewBox="0 0 24 24">
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="9" cy="8" r="3.1" fill="currentColor" />
-            <circle cx="16.7" cy="9.2" r="2.5" fill="currentColor" opacity=".78" />
-            <path d="M3.7 19.2c.15-3.38 2.34-5.45 5.3-5.45s5.14 2.07 5.3 5.45H3.7Z" fill="currentColor" />
-            <path d="M14.45 19.2c.05-2.06-.57-3.72-1.66-4.84 2.96-.54 5.32 1.06 5.5 4.84h-3.84Z" fill="currentColor" opacity=".78" />
+            <circle cx="7.5" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.8" />
+            <circle cx="16.5" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.8" />
+            <path d="M2.5 19c.25-3.65 2.15-5.6 5-5.6s4.75 1.95 5 5.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            <path d="M11.5 19c.25-3.65 2.15-5.6 5-5.6s4.75 1.95 5 5.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
           </svg>
         </el-icon>
         <el-icon v-else><component :is="item.icon" /></el-icon>

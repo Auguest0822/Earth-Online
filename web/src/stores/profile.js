@@ -72,7 +72,12 @@ const getTimelineDate = (item) => {
 }
 
 const sortTimelinesByDateDesc = (a, b) => {
-  return new Date(getTimelineDate(b)) - new Date(getTimelineDate(a))
+  const getTimestamp = (item) => {
+    const createdAt = new Date(item?.createdAt).getTime()
+    if (Number.isFinite(createdAt)) return createdAt
+    return new Date(getTimelineDate(item)).getTime()
+  }
+  return getTimestamp(b) - getTimestamp(a)
 }
 
 // API 模式下，关键词来自每一条记录；在前端按出现次数汇总为关键词云数据。
@@ -190,13 +195,15 @@ export const useProfileStore = defineStore('profile', {
     async addTimeline(timeline) {
       const payload = {
         id: timeline.id || `t-${Date.now()}`,
-        ...timeline
+        ...timeline,
+        createdAt: timeline.createdAt || new Date().toISOString()
       }
       this.timelines.push(payload)
       this.timelines.sort(sortTimelinesByDateDesc)
       try {
         const saved = await createRecord(toRecordPayload(timeline))
         this.timelines = this.timelines.map(item => item.id === payload.id ? toTimeline(saved) : item)
+        this.timelines.sort(sortTimelinesByDateDesc)
         this.keywords = buildKeywordCloud(this.timelines)
         this.eventsData = buildEventsData(this.timelines)
         this.moodTrend = buildMoodTrend(this.timelines)

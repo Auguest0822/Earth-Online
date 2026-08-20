@@ -17,7 +17,7 @@
       </div>
 
       <!-- 登录表单 -->
-      <form v-if="activeTab === 'login'" class="auth-form" @submit.prevent="handleLogin">
+      <form v-if="activeTab === 'login'" class="auth-form" autocomplete="on" @submit.prevent="handleLogin">
         <el-alert
           v-if="route.query.expired === '1'"
           title="登录状态已过期，请重新登录"
@@ -26,54 +26,65 @@
           show-icon
         />
         <div class="form-item">
-          <el-input v-model="loginForm.username" placeholder="请输入用户名" size="large">
+          <el-input
+            v-model="loginForm.username"
+            name="username"
+            autocomplete="username"
+            placeholder="请输入用户名"
+            size="large"
+            @click="chooseBrowserCredential"
+          >
             <template #prefix>
               <el-icon><User /></el-icon>
             </template>
           </el-input>
         </div>
         <div class="form-item">
-          <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" size="large" show-password>
+          <el-input
+            v-model="loginForm.password"
+            name="password"
+            autocomplete="current-password"
+            type="password"
+            placeholder="请输入密码"
+            size="large"
+            show-password
+          >
             <template #prefix>
               <el-icon><Lock /></el-icon>
             </template>
           </el-input>
         </div>
         <div v-if="loginError" class="login-error">{{ loginError }}</div>
-        <div class="form-extra">
-          <el-checkbox v-model="loginForm.remember">记住密码</el-checkbox>
-          <a href="#">忘记密码？</a>
-        </div>
         <el-button type="success" size="large" native-type="submit" round class="submit-btn">
           登 录
         </el-button>
       </form>
 
       <!-- 注册表单 -->
-      <form v-if="activeTab === 'register'" class="auth-form" @submit.prevent="handleRegister">
+      <form v-if="activeTab === 'register'" class="auth-form" autocomplete="on" @submit.prevent="handleRegister">
         <div class="form-item">
-          <el-input v-model="registerForm.username" placeholder="请输入用户名" size="large">
+          <el-input v-model="registerForm.username" name="username" autocomplete="username" placeholder="请输入用户名" size="large">
             <template #prefix>
               <el-icon><User /></el-icon>
             </template>
           </el-input>
         </div>
         <div class="form-item">
-          <el-input v-model="registerForm.email" placeholder="请输入邮箱" size="large">
+          <el-input v-model="registerForm.email" name="email" autocomplete="email" type="email" placeholder="请输入邮箱" size="large">
             <template #prefix>
               <el-icon><Message /></el-icon>
             </template>
           </el-input>
         </div>
         <div class="form-item">
-          <el-input v-model="registerForm.password" type="password" placeholder="请输入密码" size="large" show-password>
+          <el-input v-model="registerForm.password" name="password" autocomplete="new-password" type="password" placeholder="请输入密码" size="large" show-password>
             <template #prefix>
               <el-icon><Lock /></el-icon>
             </template>
           </el-input>
         </div>
         <div class="form-item">
-          <el-input v-model="registerForm.confirmPassword" type="password" placeholder="请确认密码" size="large" show-password>
+          <el-input v-model="registerForm.confirmPassword" name="password-confirmation" autocomplete="new-password" type="password" placeholder="请确认密码" size="large" show-password>
             <template #prefix>
               <el-icon><Lock /></el-icon>
             </template>
@@ -88,7 +99,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { onMounted, ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { login, register } from '@/api/modules/auth'
@@ -102,8 +113,7 @@ const loginError = ref('')
 
 const loginForm = reactive({
   username: '',
-  password: '',
-  remember: false
+  password: ''
 })
 
 const registerForm = reactive({
@@ -113,6 +123,44 @@ const registerForm = reactive({
   confirmPassword: ''
 })
 
+const credentialLoading = ref(false)
+
+const loadBrowserCredential = async (mediation = 'optional') => {
+  if (!window.isSecureContext || !window.PasswordCredential || !navigator.credentials?.get) return
+  if (credentialLoading.value) return
+  credentialLoading.value = true
+  try {
+    const credential = await navigator.credentials.get({
+      password: true,
+      mediation
+    })
+    if (credential?.type === 'password') {
+      loginForm.username = credential.id || ''
+      loginForm.password = credential.password || ''
+    }
+  } catch (error) {
+    console.debug('浏览器未提供已保存的登录凭据', error)
+  } finally {
+    credentialLoading.value = false
+  }
+}
+
+const chooseBrowserCredential = () => loadBrowserCredential('required')
+
+const saveBrowserCredential = async (username, password) => {
+  if (!window.isSecureContext || !window.PasswordCredential || !navigator.credentials?.store) return
+  try {
+    const credential = new window.PasswordCredential({
+      id: username,
+      name: username,
+      password
+    })
+    await navigator.credentials.store(credential)
+  } catch (error) {
+    console.debug('浏览器未保存登录凭据', error)
+  }
+}
+
 const handleLogin = async () => {
   loginError.value = ''
   if (!loginForm.username || !loginForm.password) {
@@ -121,6 +169,7 @@ const handleLogin = async () => {
   }
   try {
     await login({ username: loginForm.username, password: loginForm.password })
+    await saveBrowserCredential(loginForm.username, loginForm.password)
     profileStore.clearUserSession()
     await profileStore.fetchProfileData()
   } catch (error) {
@@ -154,6 +203,7 @@ const handleRegister = async () => {
         email: registerForm.email
     })
     await login({ username: registerForm.username, password: registerForm.password })
+    await saveBrowserCredential(registerForm.username, registerForm.password)
     profileStore.clearUserSession()
     await profileStore.fetchProfileData()
   } catch (error) {
@@ -165,6 +215,8 @@ const handleRegister = async () => {
     router.push('/')
   }, 800)
 }
+
+onMounted(loadBrowserCredential)
 </script>
 
 <style lang="scss" scoped>
@@ -191,13 +243,10 @@ const handleRegister = async () => {
   width: 420px;
   padding: 48px 40px;
   
-  /* ----- 毛玻璃效果 ----- */
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: #edf6ec;
+  border: 1px solid #c5dcc6;
   border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 18px 48px rgba(54, 91, 61, 0.2), 0 3px 12px rgba(66, 105, 72, 0.1);
 }
 
 .auth-tabs {
@@ -210,27 +259,27 @@ const handleRegister = async () => {
   .tab-item {
     font-size: 20px;
     font-weight: 500;
-    color: #aaa;
+    color: #829184;
     cursor: pointer;
     padding: 8px 28px;
     transition: all 0.3s ease;
     border-radius: 12px;
 
     &:hover {
-      color: #66C28A;
+      color: #4f9d70;
     }
 
     &.active {
-      color: #66C28A;
+      color: #3f9164;
       font-weight: 700;
-      background: rgba(102, 194, 138, 0.08);
+      background: #dcebdc;
     }
   }
 
   .tab-divider {
     width: 1px;
     height: 20px;
-    background: rgba(0, 0, 0, 0.08);
+    background: #c9d8c9;
   }
 }
 
@@ -240,37 +289,17 @@ const handleRegister = async () => {
 
     :deep(.el-input__wrapper) {
       border-radius: 14px;
-      background: rgba(255, 255, 255, 0.3);
-      box-shadow: 0 0 0 1px rgba(102, 194, 138, 0.15) inset;
+      background: #fbfdf8;
+      box-shadow: 0 0 0 1px #c5d8c7 inset;
       transition: all 0.3s;
 
       &:hover {
-        box-shadow: 0 0 0 1px rgba(102, 194, 138, 0.3) inset;
+        box-shadow: 0 0 0 1px #8fba9f inset;
       }
 
       &.is-focus {
-        box-shadow: 0 0 0 1px #66C28A inset;
-        background: rgba(255, 255, 255, 0.5);
-      }
-    }
-  }
-
-  .form-extra {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 13px;
-    margin-bottom: 28px;
-
-    :deep(.el-checkbox__label) {
-      color: #666;
-    }
-
-    a {
-      color: #66C28A;
-      text-decoration: none;
-      &:hover {
-        text-decoration: underline;
+        box-shadow: 0 0 0 2px #69ad83 inset;
+        background: #fffef9;
       }
     }
   }
@@ -280,16 +309,16 @@ const handleRegister = async () => {
     height: 48px;
     font-size: 16px;
     letter-spacing: 6px;
-    background: linear-gradient(135deg, rgba(102, 194, 138, 0.72), rgba(81, 168, 116, 0.72));
+    background: linear-gradient(135deg, #69b083, #438d68);
     border: none;
     border-radius: 14px;
-    box-shadow: 0 6px 20px rgba(102, 194, 138, 0.22);
+    box-shadow: 0 7px 20px rgba(54, 112, 82, 0.25);
     transition: all 0.3s;
 
     &:hover {
-      background: linear-gradient(135deg, rgba(102, 194, 138, 0.82), rgba(81, 168, 116, 0.82));
+      background: linear-gradient(135deg, #76b98e, #397d5c);
       transform: translateY(-1px);
-      box-shadow: 0 8px 28px rgba(102, 194, 138, 0.3);
+      box-shadow: 0 9px 28px rgba(48, 103, 75, 0.32);
     }
   }
 }

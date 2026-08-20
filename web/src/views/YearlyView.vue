@@ -3,7 +3,7 @@
     <section class="yearly-hero module-card">
       <div>
         <p class="eyebrow">年度记录</p>
-        <h2>{{ currentYear }} 地球生活档案</h2>
+        <h2>{{ selectedYear === 'all' ? '全部年份' : selectedYear }} 地球生活档案</h2>
         <p class="desc">把个人时间线沉淀成年度视角，查看事件分布、心情趋势和关键词变化。</p>
       </div>
       <div class="year-selector">
@@ -114,11 +114,11 @@ import DataAnalysis from '@/components/Profile/DataAnalysis.vue'
 import { generateYearlySummary, getYearlySummary } from '@/api/modules/stats'
 
 const profileStore = useProfileStore()
-const selectedYear = ref('all')
+const currentYear = new Date().getFullYear()
+const selectedYear = ref(String(currentYear))
 const moodScoreVisible = ref(false)
 const aiSummary = ref(null)
 const aiLoading = ref(false)
-const currentYear = new Date().getFullYear()
 const moodScores = [
   { emoji: '😊', label: '开心', score: 9 }, { emoji: '😌', label: '平静', score: 7 },
   { emoji: '🥰', label: '感恩', score: 8 }, { emoji: '🤔', label: '思考', score: 6 },
@@ -132,7 +132,7 @@ const moodScores = [
 const moodScoreMap = new Map(moodScores.map((item) => [item.emoji, item.score]))
 
 const yearOptions = computed(() => {
-  const years = new Set()
+  const years = new Set([currentYear])
   profileStore.timelines.forEach((item) => {
     const date = new Date(item.date)
     if (!Number.isNaN(date.getTime())) {
@@ -229,8 +229,9 @@ const formatSummaryTime = value => value
 
 watch(selectedYear, loadSummary)
 
-onMounted(() => {
-  profileStore.fetchProfileData()
+onMounted(async () => {
+  await profileStore.fetchProfileData()
+  await loadSummary()
 })
 </script>
 
