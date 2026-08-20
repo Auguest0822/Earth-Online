@@ -127,18 +127,6 @@
           </div>
         </div>
 
-        <div class="setting-block">
-          <label>隐私状态</label>
-          <div class="segmented">
-            <button :class="{ active: form.visibility === 'private' }" @click="form.visibility = 'private'">
-              仅自己可见
-            </button>
-            <button :class="{ active: form.visibility === 'shareable' }" @click="form.visibility = 'shareable'">
-              到期可分享
-            </button>
-          </div>
-        </div>
-
         <div class="switch-row">
           <div>
             <strong>到期前允许编辑</strong>
@@ -157,10 +145,12 @@
           </div>
         </div>
 
-        <el-button class="seal-button" type="success" size="large" @click="sealCapsule">
-          <el-icon><Finished /></el-icon>
-          封存信件
-        </el-button>
+        <div class="letter-actions">
+          <el-button size="large" :loading="savingLetter" @click="saveDraft">保存草稿</el-button>
+          <el-button class="seal-button" type="success" size="large" :loading="savingLetter" @click="sealCapsule">
+            <el-icon><Finished /></el-icon>封存信件
+          </el-button>
+        </div>
       </aside>
     </section>
 
@@ -203,20 +193,33 @@
           <div class="card-meta">
             <span>
               <el-icon><Calendar /></el-icon>
-              {{ capsule.openAt }}
+              {{ formatOpenDate(capsule.openAt) }}
             </span>
             <strong>{{ capsule.status === 'sealed' ? daysLeft(capsule.openAt) : capsule.action }}</strong>
+          </div>
+          <div class="capsule-actions">
+            <el-button v-if="capsule.status === 'draft'" size="small" @click="editDraft(capsule)">继续编辑</el-button>
+            <el-button v-else-if="capsule.status === 'sealed' && canOpen(capsule.openAt)" size="small" type="success" @click="openCapsule(capsule)">开启信件</el-button>
+            <el-button v-else-if="capsule.status === 'opened'" size="small" @click="viewOpenedLetter(capsule)">查看信件</el-button>
           </div>
         </article>
       </div>
     </section>
+
+    <el-dialog v-model="letterDetailVisible" :title="openedLetter?.title || '未来信件'" width="min(92vw, 680px)">
+      <article v-if="openedLetter" class="opened-letter">
+        <p class="opened-letter__date">开启日期：{{ formatOpenDate(openedLetter.openAt) }}</p>
+        <p class="opened-letter__content">{{ openedLetter.content }}</p>
+        <span v-if="openedLetter.mood">{{ openedLetter.mood }}</span>
+      </article>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { createFutureLetter, listFutureLetters } from '@/api/modules/futureLetters'
+import { createFutureLetter, listFutureLetters, openFutureLetter, updateFutureLetter } from '@/api/modules/futureLetters'
 
 const moodOptions = ['期待', '平静', '勇敢', '迷茫', '快乐']
 const datePresets = [
@@ -277,7 +280,6 @@ const form = reactive({
   moodText: '',
   tags: ['成长', '给自己'],
   openAt: getFutureDate(365),
-  visibility: 'private',
   allowEditBeforeOpen: true
 })
 
@@ -287,6 +289,10 @@ const activeFilter = ref('all')
 const tagEditing = ref(false)
 const tagInput = ref('')
 const tagInputRef = ref(null)
+const editingDraftId = ref(null)
+const savingLetter = ref(false)
+const letterDetailVisible = ref(false)
+const openedLetter = ref(null)
 
 const sealedCount = computed(() => capsules.value.filter(item => item.status === 'sealed').length)
 const openedCount = computed(() => capsules.value.filter(item => item.status === 'opened').length)
@@ -323,6 +329,9 @@ const daysLeft = (dateStr) => {
   return diff > 0 ? `还有 ${diff} 天` : '可以开启'
 }
 
+const canOpen = dateStr => getDateStart(dateStr) <= getDateStart(new Date())
+const formatOpenDate = value => value ? formatLocalDate(new Date(value)) : ''
+
 const showTagInput = async () => {
   tagEditing.value = true
   await nextTick()
@@ -342,23 +351,19 @@ const removeTag = (tag) => {
   form.tags = form.tags.filter(item => item !== tag)
 }
 
-const sealCapsule = async () => {
-  if (!form.title.trim()) {
-    ElMessage.warning('请先写下信件标题')
-    return
-  }
+const persistLetter = async status => {
   if (!form.content.trim()) {
     ElMessage.warning('请先写下信件内容')
-    return
+    return false
   }
   if (!form.openAt) {
     ElMessage.warning('请选择开启日期')
-    return
+    return false
   }
-  if (isBeforeTomorrow(form.openAt)) {
+  if (status === 'sealed' && isBeforeTomorrow(form.openAt)) {
     ElMessage.warning('开启日期请从明天开始选择')
     form.openAt = getFutureDate(1)
-    return
+    return false
   }
 
   const payload = {
@@ -368,39 +373,82 @@ const sealCapsule = async () => {
     moods: [...form.moods, form.moodText.trim()].filter(Boolean),
     tags: [...form.tags],
     openAt: form.openAt,
-    visibility: form.visibility,
+    visibility: 'private',
     allowEditBeforeOpen: form.allowEditBeforeOpen,
-    status: 'sealed'
+    status
   }
-  let savedLetter
+  savingLetter.value = true
   try {
-    const saved = await createFutureLetter({
-      title: payload.title,
+    const request = {
+      title: payload.title.trim() || '未命名信件',
       content: payload.content,
       mood: moodSummary.value,
       openAt: payload.openAt,
       status: payload.status,
       visibility: payload.visibility,
       allowEditBeforeOpen: payload.allowEditBeforeOpen
-    })
-    savedLetter = {
+    }
+    const saved = editingDraftId.value
+      ? await updateFutureLetter(editingDraftId.value, request)
+      : await createFutureLetter(request)
+    const savedLetter = {
       ...saved,
       excerpt: saved.content?.slice(0, 36),
-      action: '等待中'
+      action: status === 'draft' ? '继续编辑' : '等待中'
     }
+    const existingIndex = capsules.value.findIndex(item => item.id === savedLetter.id)
+    if (existingIndex >= 0) capsules.value.splice(existingIndex, 1, savedLetter)
+    else capsules.value.unshift(savedLetter)
   } catch (error) {
-    ElMessage.error(error.message || '信件封存失败')
-    return
+    ElMessage.error(error.message || '信件保存失败')
+    return false
+  } finally {
+    savingLetter.value = false
   }
-  capsules.value.unshift(savedLetter)
-
+  editingDraftId.value = null
   form.title = ''
   form.content = ''
   form.moods = ['期待']
   form.moodText = ''
   form.tags = ['成长', '给自己']
   form.openAt = getFutureDate(365)
-  ElMessage.success('写给未来的信已封存')
+  return true
+}
+
+const saveDraft = async () => {
+  if (await persistLetter('draft')) ElMessage.success('草稿已保存，可稍后继续编辑')
+}
+
+const sealCapsule = async () => {
+  if (await persistLetter('sealed')) ElMessage.success('写给未来的信已封存')
+}
+
+const editDraft = capsule => {
+  editingDraftId.value = capsule.id
+  form.title = capsule.title === '未命名信件' ? '' : capsule.title
+  form.content = capsule.content || ''
+  form.openAt = formatOpenDate(capsule.openAt) || getFutureDate(365)
+  form.moods = capsule.mood ? capsule.mood.split(' · ').filter(Boolean) : ['期待']
+  form.moodText = ''
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const viewOpenedLetter = capsule => {
+  openedLetter.value = capsule
+  letterDetailVisible.value = true
+}
+
+const openCapsule = async capsule => {
+  try {
+    const opened = await openFutureLetter(capsule.id)
+    const normalized = { ...opened, excerpt: opened.content?.slice(0, 36), action: '已开启' }
+    const index = capsules.value.findIndex(item => item.id === capsule.id)
+    if (index >= 0) capsules.value.splice(index, 1, normalized)
+    viewOpenedLetter(normalized)
+    ElMessage.success('信件已开启')
+  } catch (error) {
+    ElMessage.error(error.message || '信件开启失败')
+  }
 }
 
 onMounted(async () => {
@@ -409,7 +457,7 @@ onMounted(async () => {
     capsules.value = (data.items || data).map(letter => ({
       ...letter,
       excerpt: letter.excerpt || letter.content?.slice(0, 36),
-      action: letter.status === 'sealed' ? '等待中' : letter.status
+      action: letter.status === 'sealed' ? '等待中' : (letter.status === 'draft' ? '继续编辑' : '已开启')
     }))
   } catch (error) {
     capsules.value = []
@@ -904,6 +952,41 @@ onMounted(async () => {
     transform: translateY(-1px);
     box-shadow: 0 12px 26px rgba(102, 194, 138, 0.32);
   }
+}
+
+.letter-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 10px;
+}
+
+.capsule-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.opened-letter__date {
+  margin: 0 0 18px;
+  color: $text-secondary;
+  font-size: 13px;
+}
+
+.opened-letter__content {
+  margin: 0 0 18px;
+  white-space: pre-wrap;
+  color: $text-main;
+  font-size: 15px;
+  line-height: 1.9;
+}
+
+.opened-letter > span {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: var(--capsule-green-dark);
+  background: var(--capsule-mint);
+  font-size: 12px;
 }
 
 .capsule-list-section {

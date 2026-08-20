@@ -122,6 +122,24 @@ public class FutureLetterService {
         futureLetterRepository.deleteByIdAndUserId(id, userId);
     }
 
+    public FutureLetterResponse open(String username, Long id) {
+        Long userId = requireUserId(username);
+        FutureLetterEntity entity = futureLetterRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "未来信件不存在"));
+
+        if ("draft".equals(entity.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "草稿需要先封存才能开启");
+        }
+        if (LocalDateTime.now().isBefore(entity.getOpenAt())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "还没有到信件开启时间");
+        }
+        if (!"opened".equals(entity.getStatus())) {
+            entity.setStatus("opened");
+            entity = futureLetterRepository.save(entity);
+        }
+        return toResponse(entity);
+    }
+
     private Long requireUserId(String username) {
         UserEntity user = userRepository
                 .findByUsername(username)

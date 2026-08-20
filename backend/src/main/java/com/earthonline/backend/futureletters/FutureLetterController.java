@@ -67,6 +67,14 @@ public class FutureLetterController {
         );
     }
 
+    @PostMapping("/{id}/open")
+    public FutureLetterResponse open(
+            @PathVariable Long id,
+            Authentication authentication
+    ) {
+        return futureLetterService.open(authentication.getName(), id);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(
             @PathVariable Long id,

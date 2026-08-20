@@ -6,14 +6,6 @@
         <el-icon class="icon"><MagicStick /></el-icon>
       </div>
       <div class="actions">
-        <el-button-group>
-          <el-button type="success" plain size="small" class="active-btn">
-            <el-icon><Operation /></el-icon> 时间轴视图
-          </el-button>
-          <el-button type="success" plain size="small">
-            <el-icon><Calendar /></el-icon> 日历视图
-          </el-button>
-        </el-button-group>
         <el-select style="width: 100px" size="small" placeholder="全部年份" v-model="selectedYear">
           <el-option label="全部年份" value="all" />
           <el-option v-for="year in yearOptions" :key="year" :label="year" :value="String(year)" />
@@ -68,17 +60,14 @@
                   <span class="time">{{ group.year }}-{{ pad2(group.month) }}-{{ pad2(group.day) }}</span>
                 </div>
               </div>
-              <el-dropdown trigger="click" @click.stop>
-                <span class="el-dropdown-link" style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
-                  <el-icon><MoreFilled /></el-icon>
-                </span>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item @click="handleEdit(item)">编辑</el-dropdown-item>
-                    <el-dropdown-item divided type="danger" @click="handleDelete(item.id)">删除</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+              <el-button
+                text
+                type="danger"
+                size="small"
+                class="delete-checkbox"
+                aria-label="删除这条事记"
+                @click.stop="handleDelete(item.id)"
+              >删除</el-button>
             </div>
 
             <div class="card-body">
@@ -142,7 +131,7 @@
 
     <div v-if="groupedTimelines.length" class="load-more">
       <el-button type="success" plain round size="small">
-        <el-icon><ArrowDown /></el-icon> 查看更多年份
+        <el-icon><ArrowDown /></el-icon> 查看更多事记
       </el-button>
     </div>
 
@@ -180,7 +169,6 @@
               @update:model-value="limitContentLength"
               rows="6"
             />
-            <span class="content-counter">{{ formData.content.length }} / 1500 字</span>
           </div>
         </el-form-item>
         <el-form-item label="关键词" class="keyword-form-item">
@@ -425,15 +413,20 @@ const handleEdit = (item) => {
   dialogVisible.value = true
 }
 
-const handleDelete = (id) => {
-  ElMessageBox.confirm('确定要删除该时间轴记录吗？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => {
-    profileStore.deleteTimeline(id)
+const handleDelete = async (id) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该时间轴记录吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await profileStore.deleteTimeline(id)
     ElMessage.success('删除成功')
-  }).catch(() => {})
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(error?.message || '删除失败，请重试')
+    }
+  }
 }
 
 const submitForm = async () => {
@@ -544,9 +537,6 @@ const removePhoto = (index) => {
     gap: 12px;
     align-items: center;
     
-    .active-btn {
-      background-color: rgba(102, 194, 138, 0.1);
-    }
   }
 }
 
@@ -664,6 +654,10 @@ const removePhoto = (index) => {
     .time {
       font-size: 12px;
       color: $text-secondary;
+    }
+
+    .delete-checkbox {
+      padding: 4px 8px;
     }
   }
 
@@ -842,17 +836,6 @@ const removePhoto = (index) => {
   width: 100%;
 
   :deep(.el-textarea__inner) { min-height: 148px !important; padding-bottom: 28px; }
-}
-
-.content-counter {
-  position: absolute;
-  right: 12px;
-  bottom: 8px;
-  z-index: 2;
-  color: $text-secondary;
-  font-size: 12px;
-  line-height: 1;
-  pointer-events: none;
 }
 
 .mood-select { width: 100%; }

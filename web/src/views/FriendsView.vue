@@ -11,7 +11,7 @@
         <el-input
           v-model="searchKeyword"
           maxlength="10"
-          placeholder="根据 10 位地球 ID 搜索"
+          placeholder="根据ID搜索"
           clearable
           @keyup.enter="handleSearch"
         >
@@ -69,8 +69,7 @@
               <strong>{{ friend.name }}</strong><time>{{ friend.time }}</time>
             </span>
             <span class="friend-public-id">ID · {{ friend.publicId }}</span>
-            <span class="friend-item__bottom">
-              <span class="friend-item__message">{{ friend.preview }}</span>
+            <span v-if="friend.unreadCount" class="friend-item__bottom">
               <span v-if="friend.unreadCount" class="friend-item__unread" :aria-label="`${friend.unreadCount} 条未读消息`">
                 {{ friend.unreadCount > 99 ? '99+' : friend.unreadCount }}
               </span>
@@ -92,20 +91,9 @@
             <Avatar :user="selectedFriend" size="large" />
             <div>
               <h3>{{ selectedFriend.name }}</h3>
-              <p><span class="online-dot" :class="{ offline: !chatConnected }"></span> {{ chatConnected ? '实时连接' : '正在重连…' }}</p>
             </div>
           </div>
-          <el-popconfirm
-            width="240"
-            title="删除好友后将无法继续聊天，历史消息会保留。确定删除吗？"
-            confirm-button-text="删除"
-            cancel-button-text="取消"
-            @confirm="handleRemoveFriend"
-          >
-            <template #reference>
-              <el-button text type="danger" :loading="removingFriend">删除好友</el-button>
-            </template>
-          </el-popconfirm>
+          <el-button text type="danger" :loading="removingFriend" @click="removeConfirmVisible = true">删除好友</el-button>
         </header>
 
         <div ref="chatContent" class="chat-content">
@@ -116,9 +104,6 @@
           </div>
           <div v-else class="message-list">
             <template v-for="(message, index) in messages" :key="message.id">
-              <div v-if="shouldShowMessageTime(message, messages[index - 1])" class="message-time-divider">
-                {{ formatMessageTime(message.createdAt) }}
-              </div>
               <article class="message-row" :class="{ mine: message.mine }">
                 <Avatar v-if="!message.mine" :user="message.sender" size="small" />
                 <div class="message-body">
@@ -139,9 +124,7 @@
                     class="message-retry"
                     @click="retryMessage(message)"
                   >发送失败，点击重试</button>
-                  <span v-else-if="message.mine" class="message-read-state">
-                    {{ message.deliveryStatus === 'sending' ? '发送中' : (message.readAt ? '已读' : '未读') }}
-                  </span>
+                  <span v-else-if="message.mine && message.deliveryStatus === 'sending'" class="message-read-state">发送中</span>
                 </div>
               </article>
             </template>
@@ -150,7 +133,6 @@
 
         <footer class="chat-editor">
           <div class="editor-tools">
-            <el-icon><ChatDotRound /></el-icon>
             <button type="button" title="发送图片" :disabled="uploadingImage" @click="chatImageInput?.click()">
               <el-icon><Picture /></el-icon>
             </button>
@@ -171,6 +153,14 @@
         <p>从左侧好友列表中选择一位朋友，开始你们的地球对话。</p>
       </div>
     </section>
+
+    <el-dialog v-model="removeConfirmVisible" title="删除好友" width="min(90vw, 420px)" align-center>
+      <p class="remove-confirm-text">删除好友后将无法继续聊天，历史消息会保留。确定删除吗？</p>
+      <template #footer>
+        <el-button @click="removeConfirmVisible = false">取消</el-button>
+        <el-button type="danger" :loading="removingFriend" @click="confirmRemoveFriend">确定删除</el-button>
+      </template>
+    </el-dialog>
   </main>
 </template>
 
@@ -249,6 +239,7 @@ const receivedRequests = ref([])
 const loadingReceived = ref(false)
 const processingRequestId = ref(null)
 const removingFriend = ref(false)
+const removeConfirmVisible = ref(false)
 const messages = ref([])
 const loadingMessages = ref(false)
 const sendingMessage = ref(false)
@@ -360,33 +351,30 @@ const removeFriendFromPage = friendPublicId => {
 
 const handleRemoveFriend = async () => {
   const friendPublicId = selectedFriend.value?.publicId
-  if (!friendPublicId || removingFriend.value) return
+  if (!friendPublicId || removingFriend.value) return false
   removingFriend.value = true
   try {
     await removeFriend(friendPublicId)
     removeFriendFromPage(friendPublicId)
     ElMessage.success('已删除好友')
+    return true
   } catch (error) {
     if (error.status === 404) removeFriendFromPage(friendPublicId)
     ElMessage.error(error.message || '删除好友失败')
+    return false
   } finally {
     removingFriend.value = false
   }
+}
+
+const confirmRemoveFriend = async () => {
+  if (await handleRemoveFriend()) removeConfirmVisible.value = false
 }
 
 const formatMessageTime = value => {
   if (!value) return ''
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit' }).format(date)
-}
-
-const shouldShowMessageTime = (message, previousMessage) => {
-  if (!previousMessage) return true
-  const currentTime = new Date(message.createdAt).getTime()
-  const previousTime = new Date(previousMessage.createdAt).getTime()
-  // Invalid dates should still show a separator rather than hiding useful context.
-  if (Number.isNaN(currentTime) || Number.isNaN(previousTime)) return true
-  return currentTime - previousTime >= 5 * 60 * 1000
 }
 
 const scrollMessagesToBottom = async () => {
@@ -767,14 +755,11 @@ h2 { margin-bottom:5px; color:$text-main; font-size:24px; }
 .chat-user { display:flex; align-items:center; gap:12px; }
 .chat-user h3 { margin-bottom:4px; color:$text-main; font-size:17px; }
 .chat-user p { margin:0; color:$text-secondary; font-size:12px; }
-.online-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:$primary-color; }
-.online-dot.offline { background:#d9a441; }
 .chat-content { display:flex; flex:1; min-height:260px; overflow-y:auto; padding:26px; background:linear-gradient(180deg,rgba(247,252,247,.72),#fff 35%); }
 .chat-tip { position:absolute; align-self:start; padding:7px 12px; border-radius:999px; color:$text-secondary; background:rgba(102,194,138,.12); font-size:12px; }
 .chat-placeholder { display:grid; width:100%; align-self:center; place-items:center; color:$text-secondary; text-align:center; }
 .chat-placeholder .el-icon { color:$primary-color; font-size:44px; }
 .message-list { display:flex; width:100%; align-self:flex-end; flex-direction:column; gap:12px; }
-.message-time-divider { align-self:center; padding:3px 10px; border-radius:999px; color:$text-secondary; background:rgba(245,248,245,.94); font-size:12px; line-height:1.4; }
 .message-row { display:flex; max-width:76%; align-items:flex-end; gap:8px; }.message-row.mine { align-self:flex-end; flex-direction:row-reverse; }
 .message-body { display:flex; min-width:0; flex-direction:column; align-items:flex-start; }.message-row.mine .message-body { align-items:flex-end; }
 .message-bubble { padding:10px 13px; border-radius:14px 14px 14px 3px; color:$text-main; background:#fff; box-shadow:0 2px 10px rgba(62,126,85,.08); }.message-row.mine .message-bubble { border-radius:14px 14px 3px 14px; color:#fff; background:$primary-color; }
@@ -782,6 +767,7 @@ h2 { margin-bottom:5px; color:$text-main; font-size:24px; }
 .message-image { width:min(260px,42vw); height:180px; overflow:hidden; border-radius:14px; background:#f3f6f3; box-shadow:0 2px 10px rgba(62,126,85,.1); cursor:zoom-in; }
 .message-image__error { display:grid; width:100%; height:100%; padding:16px; place-items:center; color:$text-secondary; font-size:12px; }
 .message-read-state { margin-top:4px; color:$text-secondary; font-size:10px; }
+.remove-confirm-text { margin:0; color:$text-regular; line-height:1.7; }
 .message-retry { margin-top:4px; padding:0; border:0; color:#e45b5b; background:transparent; font-size:10px; cursor:pointer; }
 .chat-editor { padding:12px 22px 16px; border-top:1px solid rgba(102,194,138,.14); }
 .editor-tools { display:flex; align-items:center; gap:16px; margin:0 0 9px 4px; color:$text-regular; font-size:20px; }
