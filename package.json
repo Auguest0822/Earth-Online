@@ -9,8 +9,6 @@
   "scripts": {
     "dev": "npm run dev --workspace @earth-online/web --",
     "web": "npm run dev --workspace @earth-online/web --",
-    "api": "node server/news-server.js",
-    "dev:full": "node server/dev.js",
     "build": "npm run build --workspace @earth-online/web",
     "preview": "npm run preview --workspace @earth-online/web"
   }

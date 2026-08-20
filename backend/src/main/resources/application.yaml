@@ -24,16 +24,6 @@ jwt:
   secret: ${JWT_SECRET}
   expiration-ms: ${JWT_EXPIRATION_MS:86400000}
 
-juhe:
-  news:
-    base-url: https://v.juhe.cn/toutiao/index
-    key: ${JUHE_NEWS_KEY:}
-    cache-minutes: 10
-
-gnews:
-  base-url: https://gnews.io/api/v4/top-headlines
-  key: ${GNEWS_API_KEY:}
-
 server:
   port: 8080
 

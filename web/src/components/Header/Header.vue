@@ -47,14 +47,6 @@
         </div>
       </div>
       
-      <div class="actions">
-        <button class="action-button" aria-label="通知">
-          <el-icon><Bell /></el-icon>
-        </button>
-        <button class="action-button" aria-label="设置">
-          <el-icon><Setting /></el-icon>
-        </button>
-      </div>
     </div>
   </div>
 </template>
@@ -188,47 +180,6 @@ onBeforeUnmount(() => {
     .search-state { padding:18px 12px; color:$text-secondary; font-size:12px; text-align:center; }
   }
 
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 20px;
-    color: $text-regular;
-
-    .action-button {
-      width: 36px;
-      height: 36px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      border: 0;
-      border-radius: 50%;
-      color: inherit;
-      background: transparent;
-      cursor: pointer;
-      transition: color 0.2s ease, background-color 0.2s ease;
-
-      &:hover {
-        color: $primary-color;
-        background-color: rgba(102, 194, 138, 0.1);
-      }
-    }
-
-    .badge-item {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .el-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-    }
-  }
-
   .user-profile {
     display: flex;
     align-items: center;
@@ -288,7 +239,5 @@ onBeforeUnmount(() => {
   .header-right .user-profile .user-info,
   .header-right .user-profile > .el-icon { display: none; }
   .header-right .user-profile .avatar { width: 32px; height: 32px; }
-  .header-right .actions { gap: 4px; }
-  .header-right .actions .action-button { width: 32px; height: 32px; }
 }
 </style>

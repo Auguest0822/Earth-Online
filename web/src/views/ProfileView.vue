@@ -99,19 +99,6 @@
       </aside>
     </div>
 
-    <section class="earth-summary module-card">
-      <div class="module-title">
-        <div><el-icon><Compass /></el-icon><h2>今天的地球</h2></div>
-        <button class="text-link" @click="router.push('/earth')">查看全部新闻 →</button>
-      </div>
-      <div v-loading="newsLoading" class="earth-news-grid">
-        <article v-for="item in earthNews" :key="item.id" @click="router.push('/earth')">
-          <img :src="item.image" :alt="item.title" />
-          <div><span>{{ item.category }}</span><h3>{{ item.title }}</h3><small>{{ item.source }} · {{ formatNewsTime(item.publishedAt) }}</small></div>
-        </article>
-      </div>
-    </section>
-
     <el-dialog v-model="tagDialogVisible" title="添加标签" width="360px">
       <el-input v-model="tagInput" maxlength="12" placeholder="例如：学习、生活、旅行" @keyup.enter="confirmTag" />
       <template #footer><el-button type="success" @click="confirmTag">添加</el-button></template>
@@ -125,7 +112,6 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useProfileStore } from '@/stores/profile'
-import { fetchEarthNews } from '@/api/newsService'
 
 const router = useRouter()
 const profileStore = useProfileStore()
@@ -133,8 +119,6 @@ const draft = ref('')
 const tags = ref([])
 const tagInput = ref('')
 const tagDialogVisible = ref(false)
-const newsLoading = ref(false)
-const earthNews = ref([])
 const moods = [
   { label: '开心', icon: '😊' }, { label: '平静', icon: '😌' },
   { label: '感恩', icon: '🙂' }, { label: '思考', icon: '🤔' },
@@ -167,11 +151,6 @@ const getContentPreview = (content, maxLength = 84) => {
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}…` : normalized
 }
 const moodLabel = icon => moods.find(item => item.icon === icon)?.label || '记录'
-const formatNewsTime = value => {
-  const minutes = Math.max(1, Math.floor((Date.now() - new Date(value).getTime()) / 60000))
-  return minutes < 60 ? `${minutes} 分钟前` : `${Math.floor(minutes / 60)} 小时前`
-}
-
 const confirmTag = () => {
   const value = tagInput.value.trim()
   if (value && !tags.value.includes(value)) tags.value.push(value)
@@ -196,17 +175,8 @@ const publishRecord = async () => {
   }
 }
 
-const loadNews = async () => {
-  newsLoading.value = true
-  try {
-    const data = await fetchEarthNews()
-    earthNews.value = (data.events || []).slice(0, 4)
-  } finally { newsLoading.value = false }
-}
-
 onMounted(async () => {
   await profileStore.fetchProfileData()
-  loadNews()
 })
 </script>
 
@@ -244,7 +214,6 @@ onMounted(async () => {
 .year-summary > div:first-child { width:110px; }.year-summary span,.year-summary em { display:block; color:$text-secondary; font-size:11px; font-style:normal; }.year-summary strong { display:block; margin:5px 0; color:#43a36b; font-size:26px; }.year-summary strong small { font-size:11px; }
 .mood-chart { flex:1; height:64px; display:flex; align-items:flex-end; gap:8px; border-bottom:1px solid $border-color; }.mood-chart span { flex:1; min-height:20%; border-radius:5px 5px 0 0; background:linear-gradient(#8bd0a5,#dff2e6); }
 .mood-chart small { align-self:center; margin:auto; color:$text-secondary; font-size:11px; }
-.earth-summary { padding-bottom:16px; }.earth-news-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); min-height:90px; }.earth-news-grid article { display:grid; grid-template-columns:92px 1fr; gap:10px; padding:0 14px; border-left:1px solid $border-color; cursor:pointer; }.earth-news-grid article:first-child { padding-left:0; border-left:0; }.earth-news-grid img { width:92px; height:70px; border-radius:8px; object-fit:cover; }.earth-news-grid span { color:$primary-color; font-size:10px; }.earth-news-grid h3 { display:-webkit-box; overflow:hidden; margin:4px 0; color:$text-main; font-size:12px; line-height:1.4; -webkit-line-clamp:2; -webkit-box-orient:vertical; }.earth-news-grid small { color:$text-secondary; font-size:9px; }
-@media (max-width:1200px) { .composer-actions{align-items:flex-start;flex-direction:column}.dashboard-grid{grid-template-columns:1fr}.earth-news-grid{grid-template-columns:repeat(2,1fr);gap:16px}.earth-news-grid article:nth-child(3){border-left:0} }
-@media (max-width:760px) { .welcome-row{align-items:flex-start;flex-direction:column}.today-card{text-align:left}.mood-row,.publish-actions{flex-wrap:wrap}.side-stack{display:flex;flex-direction:column}.earth-news-grid{grid-template-columns:1fr}.earth-news-grid article{padding:12px 0;border-left:0;border-top:1px solid $border-color} }
+@media (max-width:1200px) { .composer-actions{align-items:flex-start;flex-direction:column}.dashboard-grid{grid-template-columns:1fr} }
+@media (max-width:760px) { .welcome-row{align-items:flex-start;flex-direction:column}.today-card{text-align:left}.mood-row,.publish-actions{flex-wrap:wrap}.side-stack{display:flex;flex-direction:column} }
 </style>

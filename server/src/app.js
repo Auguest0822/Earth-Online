@@ -15,7 +15,6 @@ app.get('/api/health', (req, res) => {
 
 // TODO: 注册各模块路由
 // app.use('/api/auth', require('./routes/auth'))
-// app.use('/api/news', require('./routes/news'))
 // app.use('/api/capsules', require('./routes/capsules'))
 // app.use('/api/ai', require('./routes/ai'))
 

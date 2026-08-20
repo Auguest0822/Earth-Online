@@ -40,7 +40,6 @@ const route = useRoute()
 
 const menuItems = [
   { path: '/', label: '首页', icon: 'House' },
-  { path: '/earth', label: '地球动态', icon: 'Compass' },
   { path: '/timeline', label: '时间线', icon: 'Clock' },
   { path: '/yearly', label: '年度记录', icon: 'Calendar' },
   { path: '/future-letters', label: '写给未来', icon: 'MessageBox' },

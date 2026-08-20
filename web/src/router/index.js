@@ -17,12 +17,6 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
-      path: '/earth',
-      name: 'earth',
-      component: () => import('../views/EarthView.vue'),
-      meta: { requiresAuth: true }
-    },
-    {
       path: '/profile',
       name: 'profile',
       component: () => import('../views/PersonalView.vue'),
