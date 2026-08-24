@@ -54,7 +54,7 @@
           >
             <div class="card-header">
               <div class="user-meta">
-                <img :src="profileStore.userInfo?.avatar" class="avatar" />
+                <img :src="profileStore.userInfo?.avatar || defaultAvatar" class="avatar" alt="用户头像" />
                 <div class="meta-text">
                   <span class="name">{{ profileStore.userInfo?.username }}</span>
                   <span class="time">{{ formatRecordDateTime(item) }}</span>
@@ -236,6 +236,7 @@
 </template>
 
 <script setup>
+import defaultAvatar from '@/assets/picture/default-avatar.png'
 import { ref, reactive, computed, nextTick, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProfileStore } from '@/stores/profile'

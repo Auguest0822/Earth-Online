@@ -16,6 +16,8 @@ export class ApiError extends Error {
   }
 }
 
+export const isServiceUnavailableError = error => error?.status === 0 || error?.status >= 500
+
 export const request = async (path, options = {}) => {
   const { method = 'GET', body, params, headers = {}, signal } = options
   const isFormData = body instanceof FormData
@@ -50,7 +52,10 @@ export const request = async (path, options = {}) => {
       const redirect = window.location.pathname
       window.location.replace(`/login?expired=1&redirect=${encodeURIComponent(redirect)}`)
     }
-    throw new ApiError(data?.message || data?.error || `请求失败（${response.status}）`, response.status, data)
+    const message = response.status >= 500
+      ? '后台服务暂时不可用，请稍后重试'
+      : (data?.message || data?.error || `请求失败（${response.status}）`)
+    throw new ApiError(message, response.status, data)
   }
   return data
 }

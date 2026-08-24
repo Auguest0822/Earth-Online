@@ -44,18 +44,18 @@
         <form v-else key="register" class="auth-form register-form" autocomplete="on" @submit.prevent="handleRegister">
           <FieldLabel for-id="register-user" text="用户名" />
           <el-input id="register-user" v-model="registerForm.username" name="username" autocomplete="username"
-            placeholder="设置你的用户名" size="large"><template #prefix><el-icon><User /></el-icon></template></el-input>
+            maxlength="20" placeholder="3–20 位中文、字母、数字或下划线" size="large"><template #prefix><el-icon><User /></el-icon></template></el-input>
           <FieldLabel for-id="register-email" text="邮箱" />
           <el-input id="register-email" v-model="registerForm.email" name="email" autocomplete="email" type="email"
-            placeholder="输入常用邮箱" size="large"><template #prefix><el-icon><Message /></el-icon></template></el-input>
+            maxlength="20" placeholder="输入常用邮箱（最多 20 位）" size="large"><template #prefix><el-icon><Message /></el-icon></template></el-input>
           <div class="password-grid">
             <div><FieldLabel for-id="register-password" text="密码" />
               <el-input id="register-password" v-model="registerForm.password" name="password" autocomplete="new-password"
-                type="password" placeholder="设置密码" size="large" show-password><template #prefix><el-icon><Lock /></el-icon></template></el-input>
+                type="password" maxlength="20" placeholder="8–20 位，含字母和数字" size="large" show-password><template #prefix><el-icon><Lock /></el-icon></template></el-input>
             </div>
             <div><FieldLabel for-id="register-confirm" text="确认密码" />
               <el-input id="register-confirm" v-model="registerForm.confirmPassword" name="password-confirmation"
-                autocomplete="new-password" type="password" placeholder="再次输入" size="large" show-password>
+                autocomplete="new-password" type="password" maxlength="20" placeholder="再次输入" size="large" show-password>
                 <template #prefix><el-icon><Lock /></el-icon></template></el-input>
             </div>
           </div>
@@ -132,13 +132,19 @@ const handleLogin = async () => {
   }
 }
 const handleRegister = async () => {
-  if (!registerForm.username || !registerForm.email || !registerForm.password) { ElMessage.warning('请填写完整信息'); return }
+  const username = registerForm.username.trim()
+  const email = registerForm.email.trim().toLowerCase()
+  const password = registerForm.password
+  if (!username || !email || !password) { ElMessage.warning('请填写完整信息'); return }
+  if (!/^[\p{L}\p{N}_]{3,20}$/u.test(username)) { ElMessage.warning('用户名需为 3–20 位中文、字母、数字或下划线'); return }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 20) { ElMessage.warning('请输入有效且不超过 20 位的邮箱地址'); return }
+  if (password.length < 8 || password.length > 20 || !/[\p{L}]/u.test(password) || !/\d/.test(password)) { ElMessage.warning('密码需为 8–20 位，且同时包含字母和数字'); return }
   if (registerForm.password !== registerForm.confirmPassword) { ElMessage.warning('两次密码输入不一致'); return }
   submitting.value = true
   try {
-    await register({ username: registerForm.username, password: registerForm.password, email: registerForm.email })
-    await login({ username: registerForm.username, password: registerForm.password })
-    await finishSession(registerForm.username, registerForm.password)
+    await register({ username, password, email })
+    await login({ username, password })
+    await finishSession(username, password)
     ElMessage.success('注册成功，欢迎来到 Earth Online')
     setTimeout(() => router.push('/'), 600)
   } catch (error) { ElMessage.error(error.message || '注册失败，请稍后重试'); submitting.value = false }

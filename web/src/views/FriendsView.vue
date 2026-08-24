@@ -166,6 +166,7 @@
 
 <script setup>
 import { defineComponent, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { isServiceUnavailableError } from '@/api/httpClient'
 import { ElMessage } from 'element-plus'
 import { ChatDotRound, Picture, Search, UserFilled } from '@element-plus/icons-vue'
 import { acceptFriendRequest, listFriends, listReceivedFriendRequests, rejectFriendRequest, removeFriend, searchFriendByPublicId, sendFriendRequest } from '@/api/modules/friends'
@@ -292,7 +293,7 @@ const loadFriends = async () => {
       selectedFriend.value = friends.value[0] || null
     }
   } catch (error) {
-    ElMessage.error(error.message || '好友列表加载失败')
+    if (!isServiceUnavailableError(error)) ElMessage.error(error.message || '好友列表加载失败')
   } finally {
     loadingFriends.value = false
   }
@@ -304,7 +305,7 @@ const loadReceivedRequests = async () => {
     const result = await listReceivedFriendRequests()
     receivedRequests.value = Array.isArray(result) ? result : (result?.content || result?.items || result?.value || [])
   } catch (error) {
-    ElMessage.error(error.message || '收到的好友申请加载失败')
+    if (!isServiceUnavailableError(error)) ElMessage.error(error.message || '收到的好友申请加载失败')
   } finally {
     loadingReceived.value = false
   }

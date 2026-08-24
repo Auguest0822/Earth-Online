@@ -141,6 +141,9 @@ public class StorageService {
         if (objectKey.startsWith("http://") || objectKey.startsWith("https://")) {
             return objectKey;
         }
+        if ("/default-avatar.png".equals(objectKey)) {
+            return objectKey;
+        }
 
         String expectedPrefix = "avatars/" + username + "/";
         return objectKey.startsWith(expectedPrefix) ? getPreviewUrlOrNull(objectKey) : null;

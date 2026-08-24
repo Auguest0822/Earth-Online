@@ -9,7 +9,7 @@
     
     <div class="center-section">
       <div class="avatar-wrapper">
-        <img :src="displayInfo.avatar" class="avatar" />
+        <img :src="displayInfo.avatar || defaultAvatar" class="avatar" alt="用户头像" />
         <div class="check-icon"><el-icon><Check /></el-icon></div>
       </div>
     </div>
@@ -34,6 +34,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useProfileStore } from '@/stores/profile'
+import defaultAvatar from '@/assets/picture/default-avatar.png'
 
 const props = defineProps({
   userInfo: Object

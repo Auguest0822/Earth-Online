@@ -9,6 +9,8 @@ public interface UserRepository
 
     boolean existsByUsername(String username);
 
+    boolean existsByEmailIgnoreCase(String email);
+
     boolean existsByPublicId(String publicId);
 
     Optional<UserEntity> findByUsername(String username);

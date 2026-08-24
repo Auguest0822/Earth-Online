@@ -173,7 +173,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useProfileStore } from '@/stores/profile'
 import { uploadAvatar } from '@/api/modules/uploads'
-import avatarPlaceholder from '@/assets/picture/avator.jpg'
+import avatarPlaceholder from '@/assets/picture/default-avatar.png'
 
 const router = useRouter()
 const profileStore = useProfileStore()
@@ -697,6 +697,8 @@ const getContentPreview = (content, maxLength = 96) => {
 }
 
 :deep(.profile-editor-dialog) {
+  width: min(760px, calc(100vw - 32px));
+
   .el-dialog__body {
     padding-top: 8px;
   }
@@ -737,9 +739,20 @@ const getContentPreview = (content, maxLength = 96) => {
 }
 
 @media (max-width: 768px) {
+  .personal-view { gap: 16px; }
+
   .profile-hero {
-    padding: 22px;
+    grid-template-columns: 1fr;
+    padding: 18px;
   }
+
+  .edit-profile-button { width: 100%; }
+
+  .panel { padding: 18px; }
+
+  .trace-item { flex-direction: column; gap: 8px; }
+
+  .trace-date { flex-basis: auto; }
 
   .identity {
     align-items: flex-start;

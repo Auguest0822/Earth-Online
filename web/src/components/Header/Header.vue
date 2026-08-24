@@ -56,7 +56,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useProfileStore } from '@/stores/profile'
 import { useRouter } from 'vue-router'
 import { logout } from '@/api/modules/auth'
-import avatarPlaceholder from '@/assets/picture/avator.jpg'
+import avatarPlaceholder from '@/assets/picture/default-avatar.png'
 import { searchRecords } from '@/api/modules/records'
 
 const profileStore = useProfileStore()

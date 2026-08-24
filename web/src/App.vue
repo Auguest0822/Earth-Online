@@ -9,6 +9,12 @@
     <Sidebar />
     <div class="main-container">
       <Header />
+      <div v-if="!profileStore.backendAvailable" class="service-banner" role="status">
+        <span><strong>后台服务暂时不可用</strong>　页面已切换为离线展示，数据暂时无法读取或保存。</span>
+        <button type="button" :disabled="profileStore.profileLoading" @click="retryBackend">
+          {{ profileStore.profileLoading ? '正在重试…' : '重新连接' }}
+        </button>
+      </div>
       <div class="content-body">
         <router-view />
       </div>
@@ -20,8 +26,11 @@
 import { useRoute } from 'vue-router'
 import Sidebar from "@/components/Sidebar/Sidebar.vue"
 import Header from "@/components/Header/Header.vue"
+import { useProfileStore } from '@/stores/profile'
 
 const route = useRoute()
+const profileStore = useProfileStore()
+const retryBackend = () => profileStore.fetchProfileData()
 </script>
 
 <style lang="scss">
@@ -50,21 +59,66 @@ const route = useRoute()
   overflow-y: auto;
 }
 
+.service-banner {
+  display: flex;
+  min-height: 44px;
+  margin: 0 32px 12px;
+  padding: 9px 14px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #ecd9a7;
+  border-radius: 10px;
+  color: #735b24;
+  background: #fff9e9;
+  font-size: 13px;
+}
+
+.service-banner button {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid #d4b86d;
+  border-radius: 8px;
+  color: #735b24;
+  background: #fff;
+  cursor: pointer;
+}
+
+.service-banner button:disabled { opacity: .6; cursor: wait; }
+
 @media (max-width: 1280px) {
+  .service-banner { margin-right: 24px; margin-left: 24px; }
   .content-body {
     padding: 0 24px 24px;
   }
 }
 
 @media (max-width: 900px) {
+  .service-banner { margin-right: 18px; margin-left: 18px; }
   .content-body {
     padding: 0 18px 18px;
   }
 }
 
 @media (max-width: 640px) {
+  .service-banner {
+    margin: 0 12px 10px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .app-layout {
+    min-height: 100dvh;
+    height: auto;
+  }
+
+  .main-container {
+    min-width: 0;
+    min-height: 100dvh;
+  }
+
   .content-body {
-    padding: 0 12px 16px;
+    padding: 0 12px calc(80px + env(safe-area-inset-bottom));
   }
 }
 </style>

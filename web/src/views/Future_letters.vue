@@ -220,6 +220,7 @@
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createFutureLetter, listFutureLetters, openFutureLetter, updateFutureLetter } from '@/api/modules/futureLetters'
+import { isServiceUnavailableError } from '@/api/httpClient'
 
 const moodOptions = ['期待', '平静', '勇敢', '迷茫', '快乐']
 const datePresets = [
@@ -461,7 +462,7 @@ onMounted(async () => {
     }))
   } catch (error) {
     capsules.value = []
-    ElMessage.error(error.message || '未来信件加载失败')
+    if (!isServiceUnavailableError(error)) ElMessage.error(error.message || '未来信件加载失败')
   }
 })
 </script>

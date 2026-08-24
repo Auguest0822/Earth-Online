@@ -16,6 +16,8 @@ import com.earthonline.backend.user.dto.LoginResponse;
 @Service
 public class UserService {
 
+    private static final String DEFAULT_AVATAR = "/default-avatar.png";
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -37,23 +39,31 @@ public class UserService {
     }
 
     public UserResponse register(RegisterRequest request) {
-        if (userRepository.existsByUsername(request.username())) {
+        String username = request.username().trim();
+        String email = request.email().trim().toLowerCase(java.util.Locale.ROOT);
+
+        if (userRepository.existsByUsername(username)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "用户名已存在"
             );
         }
 
+        if (userRepository.existsByEmailIgnoreCase(email)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "邮箱已被注册");
+        }
+
         String passwordHash =
                 passwordEncoder.encode(request.password());
 
         UserEntity user = new UserEntity(
-                request.username(),
+                username,
                 passwordHash,
-                request.email(),
+                email,
                 LocalDateTime.now()
         );
         user.setPublicId(publicIdService.generateUniquePublicId());
+        user.setAvatar(DEFAULT_AVATAR);
 
         UserEntity saved = userRepository.save(user);
 

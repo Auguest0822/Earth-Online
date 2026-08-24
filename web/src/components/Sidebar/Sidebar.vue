@@ -1,7 +1,7 @@
 <template>
   <div class="sidebar">
     <div class="logo-area">
-      <img src='/src/assets/picture/logo.png' class="logo-img" alt="logo" />
+      <img :src="logo" class="logo-img" alt="Earth Online logo" />
       <div class="logo-text">
         <h3>地球 Online</h3>
         <span>Earth Online</span>
@@ -34,6 +34,7 @@
 
 <script setup>
 import { useRouter, useRoute } from 'vue-router'
+import logo from '@/assets/picture/logo.png'
 
 const router = useRouter()
 const route = useRoute()
@@ -160,18 +161,24 @@ const navigate = (path) => {
 
 @media (max-width: 640px) {
   .sidebar {
-    width: 60px;
-    flex-basis: 60px;
-    padding: 12px 7px;
+    position: fixed;
+    z-index: 100;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: calc(64px + env(safe-area-inset-bottom));
+    padding: 6px 8px env(safe-area-inset-bottom);
+    border-top: 1px solid rgba(102, 194, 138, .18);
+    background: rgba(250, 253, 250, .96);
+    box-shadow: 0 -8px 24px rgba(45, 90, 61, .08);
+    backdrop-filter: blur(16px);
   }
 
-  .logo-area {
-    margin-bottom: 20px;
-    .logo-img { width: 34px; height: 34px; }
-  }
+  .logo-area { display: none; }
 
-  .menu-list { gap: 7px; }
-  .menu-item { padding: 11px 6px; border-radius: 10px; }
+  .menu-list { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; }
+  .menu-item { min-width: 0; padding: 11px 4px; border-radius: 10px; }
   .menu-item .el-icon { font-size: 18px; }
 }
 </style>

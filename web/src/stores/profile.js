@@ -152,6 +152,9 @@ const toTimeline = (record) => ({
 export const useProfileStore = defineStore('profile', {
   state: () => ({
     userInfo: null,
+    backendAvailable: true,
+    backendMessage: '',
+    profileLoading: false,
     timelines: [],
     eventsData: [],
     moodTrend: [],
@@ -164,6 +167,8 @@ export const useProfileStore = defineStore('profile', {
   actions: {
     clearUserSession() {
       this.userInfo = null
+      this.backendAvailable = true
+      this.backendMessage = ''
       this.timelines = []
       this.eventsData = []
       this.moodTrend = []
@@ -171,26 +176,49 @@ export const useProfileStore = defineStore('profile', {
       this.futureLetters = []
     },
     async fetchProfileData() {
-      const [user, records, futureLetters] = await Promise.all([
+      if (this.profileLoading) return { available: this.backendAvailable }
+      this.profileLoading = true
+      const [userResult, recordsResult, lettersResult] = await Promise.allSettled([
         getCurrentUser(),
         listRecords({ page: 1, pageSize: 100 }),
         listFutureLetters()
       ])
-      this.userInfo = {
-        id: user.id,
-        publicId: user.publicId,
-        username: user.username,
-        email: user.email,
-        avatar: user.avatar,
-        slogan: user.slogan,
-        birthDate: user.birthDate
+
+      const failures = [userResult, recordsResult, lettersResult].filter(result => result.status === 'rejected')
+      this.backendAvailable = failures.length === 0
+      this.backendMessage = failures.length ? '后台服务暂时不可用，当前展示离线页面，数据操作将在服务恢复后可用。' : ''
+
+      if (userResult.status === 'fulfilled') {
+        const user = userResult.value
+        this.userInfo = {
+          id: user.id,
+          publicId: user.publicId,
+          username: user.username,
+          email: user.email,
+          avatar: user.avatar,
+          slogan: user.slogan,
+          birthDate: user.birthDate
+        }
+      } else if (!this.userInfo) {
+        this.userInfo = {
+          username: '地球居民',
+          email: '',
+          avatar: '/default-avatar.png',
+          slogan: '后台服务恢复后将自动加载你的资料。',
+          birthDate: null,
+          offline: true
+        }
       }
+
+      const records = recordsResult.status === 'fulfilled' ? recordsResult.value : []
+      const futureLetters = lettersResult.status === 'fulfilled' ? lettersResult.value : []
       this.timelines = (records.items || records).map(toTimeline).sort(sortTimelinesByDateDesc)
       this.eventsData = buildEventsData(this.timelines)
       this.moodTrend = buildMoodTrend(this.timelines)
       this.keywords = buildKeywordCloud(this.timelines)
       this.futureLetters = futureLetters.items || futureLetters
-      return { userInfo: this.userInfo, timelines: this.timelines }
+      this.profileLoading = false
+      return { userInfo: this.userInfo, timelines: this.timelines, available: this.backendAvailable }
     },
     async addTimeline(timeline) {
       const payload = {

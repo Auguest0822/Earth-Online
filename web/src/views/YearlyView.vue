@@ -231,7 +231,7 @@ watch(selectedYear, loadSummary)
 
 onMounted(async () => {
   await profileStore.fetchProfileData()
-  await loadSummary()
+  if (profileStore.backendAvailable) await loadSummary()
 })
 </script>
 
