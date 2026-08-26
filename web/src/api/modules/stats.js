@@ -7,3 +7,7 @@ export const generateYearlySummary = (year, regenerate = false) => request('/ai/
   method: 'POST',
   body: { year, regenerate }
 })
+export const queryYearlyMemory = (year, question) => request('/ai/yearly-memory/query', {
+  method: 'POST',
+  body: { year, question }
+})

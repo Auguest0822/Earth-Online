@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="ocean" cx="34%" cy="28%" r="74%">
+      <stop offset="0" stop-color="#8ff4ee"/>
+      <stop offset=".58" stop-color="#35cdd2"/>
+      <stop offset="1" stop-color="#159ab6"/>
+    </radialGradient>
+    <linearGradient id="leaf" x1="0" y1="1" x2="1" y2="0">
+      <stop stop-color="#42b96b"/>
+      <stop offset="1" stop-color="#a7e75b"/>
+    </linearGradient>
+    <clipPath id="round"><circle cx="32" cy="32" r="30"/></clipPath>
+  </defs>
+  <g clip-path="url(#round)">
+    <circle cx="32" cy="32" r="30" fill="url(#ocean)"/>
+    <path fill="#72d45e" d="M3 25 12 15l10-6 7 3-2 7-7 2-2 7 7 5-2 10-8-2-4-8-8-2zm33-18 12 4 8 8-3 7-8-2-5 5-8-5 4-6-3-5zm-3 26 7-4 9 3 6 9-6 12-8 7-7-8-6-5 2-8z"/>
+    <path fill="#d8f48a" opacity=".75" d="M6 18 17 8l10 2-9 7zm30-9 10 1-8 6z"/>
+    <ellipse cx="24" cy="16" rx="13" ry="7" fill="#fff" opacity=".2" transform="rotate(-24 24 16)"/>
+  </g>
+  <circle cx="32" cy="32" r="30" fill="none" stroke="#fff" stroke-opacity=".72" stroke-width="2"/>
+  <path d="M33 9c1-7 5-9 11-8-1 6-4 9-11 8Z" fill="url(#leaf)" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M33 10c0-5-3-8-8-9-1 5 2 9 8 9Z" fill="url(#leaf)" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>
+</svg>

@@ -33,10 +33,6 @@
 
         <div class="paper">
           <div class="paper-row">
-            <label>收件人</label>
-            <el-input v-model="form.recipient" placeholder="未来的我" />
-          </div>
-          <div class="paper-row">
             <label>信件标题</label>
             <el-input v-model="form.title" placeholder="例如：写给一年后的自己" />
           </div>
@@ -53,7 +49,7 @@
           <div class="mood-title">此刻心情</div>
           <div class="mood-list">
             <button
-              v-for="mood in moodOptions"
+              v-for="mood in displayedMoodOptions"
               :key="mood"
               class="mood-chip"
               :class="{ active: form.moods.includes(mood) }"
@@ -62,12 +58,24 @@
               {{ mood }}
             </button>
           </div>
-          <el-input
-            v-model="form.moodText"
-            class="mood-input"
-            clearable
-            placeholder="也可以自己描述此刻心情"
-          />
+          <div class="custom-mood-entry">
+            <el-input
+              v-model="form.moodText"
+              class="mood-input"
+              clearable
+              maxlength="12"
+              placeholder="也可以自己描述此刻心情"
+              @keyup.enter="addCustomMood"
+            />
+            <el-button
+              type="success"
+              plain
+              :disabled="!form.moodText.trim()"
+              @click="addCustomMood"
+            >
+              添加
+            </el-button>
+          </div>
         </div>
 
         <div class="tag-area">
@@ -274,7 +282,6 @@ const isBeforeTomorrow = (dateStr) => {
 }
 
 const form = reactive({
-  recipient: '未来的我',
   title: '',
   content: '',
   moods: ['期待'],
@@ -302,8 +309,9 @@ const filteredCapsules = computed(() => {
   if (activeFilter.value === 'all') return capsules.value
   return capsules.value.filter(item => item.status === activeFilter.value)
 })
+const displayedMoodOptions = computed(() => [...new Set([...moodOptions, ...form.moods])])
 const moodSummary = computed(() => {
-  return [...form.moods, form.moodText.trim()].filter(Boolean).join(' · ')
+  return form.moods.join(' · ')
 })
 const openHint = computed(() => {
   return form.openAt ? `将在 ${form.openAt} 开启` : '选择一个未来日期'
@@ -319,6 +327,13 @@ const toggleMood = (mood) => {
     return
   }
   form.moods.push(mood)
+}
+
+const addCustomMood = () => {
+  const mood = form.moodText.trim()
+  if (!mood) return
+  if (!form.moods.includes(mood)) form.moods.push(mood)
+  form.moodText = ''
 }
 
 const daysLeft = (dateStr) => {
@@ -368,10 +383,9 @@ const persistLetter = async status => {
   }
 
   const payload = {
-    recipient: form.recipient,
     title: form.title,
     content: form.content,
-    moods: [...form.moods, form.moodText.trim()].filter(Boolean),
+    moods: [...form.moods],
     tags: [...form.tags],
     openAt: form.openAt,
     visibility: 'private',
@@ -768,6 +782,17 @@ onMounted(async () => {
     &.is-focus {
       box-shadow: 0 0 0 1px rgba(102, 194, 138, 0.32) inset;
     }
+  }
+}
+
+.custom-mood-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .el-button {
+    min-height: 34px;
+    border-radius: 999px;
   }
 }
 
