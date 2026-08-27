@@ -17,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.net.URI;
 
 @Service
 public class StorageService {
@@ -34,13 +35,16 @@ public class StorageService {
 
     private final MinioClient minioClient;
     private final String bucket;
+    private final String publicUrl;
 
     public StorageService(
             MinioClient minioClient,
-            @Value("${minio.bucket}") String bucket
+            @Value("${minio.bucket}") String bucket,
+            @Value("${minio.public-url:}") String publicUrl
     ) {
         this.minioClient = minioClient;
         this.bucket = bucket;
+        this.publicUrl = publicUrl == null ? "" : publicUrl.strip().replaceAll("/+$", "");
     }
 
     public String uploadRecordImage(String username, MultipartFile file) {
@@ -103,7 +107,7 @@ public class StorageService {
         }
 
         try {
-            return minioClient.getPresignedObjectUrl(
+            String signedUrl = minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(Method.GET)
                             .bucket(bucket)
@@ -111,6 +115,7 @@ public class StorageService {
                             .expiry(1, TimeUnit.HOURS)
                             .build()
             );
+            return publicUrl.isBlank() ? signedUrl : withPublicOrigin(signedUrl);
         } catch (Exception exception) {
             log.error("Failed to create MinIO preview URL", exception);
 
@@ -119,6 +124,12 @@ public class StorageService {
                     "图片访问地址生成失败"
             );
         }
+    }
+
+    private String withPublicOrigin(String signedUrl) {
+        URI uri = URI.create(signedUrl);
+        String query = uri.getRawQuery();
+        return publicUrl + uri.getRawPath() + (query == null ? "" : "?" + query);
     }
 
     /**
