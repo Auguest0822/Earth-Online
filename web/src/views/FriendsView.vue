@@ -727,8 +727,8 @@ h2 { margin-bottom:5px; color:$text-main; font-size:24px; }
 .friend-list { min-height:0; flex:1; overflow-y:auto; padding:4px 10px 16px; }
 .friend-item { position:relative; display:flex; width:100%; gap:11px; padding:12px 10px; border:0; border-radius:14px; color:inherit; background:transparent; text-align:left; cursor:pointer; transition:.2s ease; }
 .friend-item:hover,.friend-item.active { background:rgba(102,194,138,.14); }
-.friend-avatar { display:grid; flex:0 0 42px; width:42px; height:42px; place-items:center; overflow:hidden; border:2px solid rgba(255,255,255,.85); border-radius:50%; color:#fff; font-weight:700; box-shadow:0 2px 8px rgba(62,126,85,.15); }
-.friend-avatar img { width:100%; height:100%; object-fit:cover; }
+.friend-avatar { display:grid; flex:0 0 42px; width:42px; height:42px; aspect-ratio:1; place-items:center; overflow:hidden; border:2px solid rgba(255,255,255,.85); border-radius:50%; color:#fff; font-weight:700; box-shadow:0 2px 8px rgba(62,126,85,.15); }
+.friend-avatar img { display:block; width:100%; height:100%; border-radius:inherit; object-fit:cover; object-position:center; }
 .friend-avatar.large { flex-basis:46px; width:46px; height:46px; }
 .friend-item__main { min-width:0; flex:1; }
 .friend-item__top { display:flex; align-items:center; justify-content:space-between; gap:8px; }

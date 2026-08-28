@@ -46,7 +46,9 @@ export const request = async (path, options = {}) => {
   const data = contentType.includes('application/json') ? await response.json() : await response.text()
   if (!response.ok) {
     const isLoginPage = window.location.pathname === '/login'
-    if (response.status === 401 && !isAuthRequest && !isLoginPage && !redirectingToLogin) {
+    // Only an existing token can expire. A visitor without a token should be
+    // handled as "not logged in" and must not see the session-expired notice.
+    if (response.status === 401 && token && !isAuthRequest && !isLoginPage && !redirectingToLogin) {
       redirectingToLogin = true
       clearAccessToken()
       const redirect = window.location.pathname

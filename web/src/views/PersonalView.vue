@@ -103,14 +103,47 @@
     <el-dialog
       v-model="profileEditorVisible"
       title="编辑个人资料"
-      width="760px"
+      width="820px"
       class="profile-editor-dialog"
+      @closed="resetAvatarCrop"
     >
       <el-form label-position="top" @submit.prevent>
         <div class="profile-editor-layout">
           <aside class="avatar-editor">
-          <div class="avatar-preview">
+          <div
+            v-if="cropSource"
+            ref="cropViewportRef"
+            class="avatar-crop-viewport"
+            @pointerdown="startCropDrag"
+            @pointermove="moveCropImage"
+            @pointerup="endCropDrag"
+            @pointercancel="endCropDrag"
+          >
+            <img
+              ref="cropImageRef"
+              :src="cropSource"
+              :style="cropImageStyle"
+              alt="头像裁剪预览"
+              draggable="false"
+              @load="handleCropImageLoad"
+            />
+            <span class="crop-guide" aria-hidden="true"></span>
+          </div>
+          <div v-else class="avatar-preview">
             <img :src="avatarPreview" alt="avatar preview" />
+          </div>
+          <div v-if="cropSource" class="crop-zoom">
+            <span>缩小</span>
+            <input
+              v-model.number="cropZoom"
+              type="range"
+              min="1"
+              max="3"
+              step="0.01"
+              aria-label="头像缩放"
+              @input="clampCropOffset"
+            />
+            <span>放大</span>
           </div>
           <el-upload
             class="avatar-upload"
@@ -119,11 +152,11 @@
             :show-file-list="false"
             @change="handleAvatarFile"
           >
-            <el-button type="success" plain size="small">选择头像</el-button>
+            <el-button type="success" plain size="small">{{ cropSource ? '重新选择' : '选择头像' }}</el-button>
           </el-upload>
           <div class="avatar-note">
             <strong>{{ profileStore.userInfo.username }}</strong>
-            <span>头像上传功能将在后续开放</span>
+            <span>{{ cropSource ? '拖动图片调整位置，使用滑块缩放' : '支持 JPG、PNG、WebP，最大 5MB' }}</span>
           </div>
           </aside>
 
@@ -168,7 +201,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useProfileStore } from '@/stores/profile'
@@ -191,6 +224,13 @@ const recentTimelines = computed(() => profileStore.timelines.slice(0, 3))
 const futureLetterCount = computed(() => profileStore.futureLetters.length)
 const profileEditorVisible = ref(false)
 const avatarFile = ref(null)
+const cropSource = ref('')
+const cropImageRef = ref(null)
+const cropViewportRef = ref(null)
+const cropZoom = ref(1)
+const cropBaseScale = ref(1)
+const cropOffset = reactive({ x: 0, y: 0 })
+const cropDrag = reactive({ active: false, startX: 0, startY: 0, originX: 0, originY: 0 })
 const profileForm = reactive({
   email: '',
   avatar: '',
@@ -207,14 +247,77 @@ const statCards = computed(() => [
 
 const avatarSrc = computed(() => profileStore.userInfo?.avatar || avatarPlaceholder)
 const avatarPreview = computed(() => profileForm.avatar || avatarSrc.value)
+const cropImageStyle = computed(() => ({
+  width: `${cropImageRef.value?.naturalWidth || 1}px`,
+  height: `${cropImageRef.value?.naturalHeight || 1}px`,
+  transform: `translate(-50%, -50%) translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${cropBaseScale.value * cropZoom.value})`
+}))
+
+const revokeCropSource = () => {
+  if (cropSource.value.startsWith('blob:')) URL.revokeObjectURL(cropSource.value)
+  cropSource.value = ''
+}
+
+const resetAvatarCrop = () => {
+  revokeCropSource()
+  avatarFile.value = null
+  cropZoom.value = 1
+  cropBaseScale.value = 1
+  cropOffset.x = 0
+  cropOffset.y = 0
+  cropDrag.active = false
+}
 
 const openProfileEditor = () => {
   profileForm.email = profileStore.userInfo?.email || ''
   profileForm.avatar = profileStore.userInfo?.avatar || ''
   profileForm.slogan = profileStore.userInfo?.slogan || ''
   profileForm.birthDate = profileStore.userInfo?.birthDate || ''
-  avatarFile.value = null
+  resetAvatarCrop()
   profileEditorVisible.value = true
+}
+
+const cropViewportSize = () => cropViewportRef.value?.clientWidth || 220
+
+const clampCropOffset = () => {
+  const image = cropImageRef.value
+  if (!image?.naturalWidth) return
+  const size = cropViewportSize()
+  const scale = cropBaseScale.value * cropZoom.value
+  const maxX = Math.max(0, (image.naturalWidth * scale - size) / 2)
+  const maxY = Math.max(0, (image.naturalHeight * scale - size) / 2)
+  cropOffset.x = Math.max(-maxX, Math.min(maxX, cropOffset.x))
+  cropOffset.y = Math.max(-maxY, Math.min(maxY, cropOffset.y))
+}
+
+const handleCropImageLoad = () => {
+  const image = cropImageRef.value
+  if (!image?.naturalWidth) return
+  const size = cropViewportSize()
+  cropBaseScale.value = Math.max(size / image.naturalWidth, size / image.naturalHeight)
+  cropZoom.value = 1
+  cropOffset.x = 0
+  cropOffset.y = 0
+}
+
+const startCropDrag = (event) => {
+  cropDrag.active = true
+  cropDrag.startX = event.clientX
+  cropDrag.startY = event.clientY
+  cropDrag.originX = cropOffset.x
+  cropDrag.originY = cropOffset.y
+  event.currentTarget.setPointerCapture?.(event.pointerId)
+}
+
+const moveCropImage = (event) => {
+  if (!cropDrag.active) return
+  cropOffset.x = cropDrag.originX + event.clientX - cropDrag.startX
+  cropOffset.y = cropDrag.originY + event.clientY - cropDrag.startY
+  clampCropOffset()
+}
+
+const endCropDrag = () => {
+  cropDrag.active = false
 }
 
 const handleAvatarFile = (uploadFile) => {
@@ -230,9 +333,36 @@ const handleAvatarFile = (uploadFile) => {
     return
   }
 
+  revokeCropSource()
   avatarFile.value = file
-  profileForm.avatar = URL.createObjectURL(file)
+  cropSource.value = URL.createObjectURL(file)
 }
+
+const createCroppedAvatar = () => new Promise((resolve, reject) => {
+  const image = cropImageRef.value
+  if (!image?.naturalWidth) {
+    reject(new Error('头像图片尚未加载完成'))
+    return
+  }
+
+  const viewportSize = cropViewportSize()
+  const scale = cropBaseScale.value * cropZoom.value
+  const sourceSize = viewportSize / scale
+  const sourceX = (image.naturalWidth - sourceSize) / 2 - cropOffset.x / scale
+  const sourceY = (image.naturalHeight - sourceSize) / 2 - cropOffset.y / scale
+  const canvas = document.createElement('canvas')
+  canvas.width = 512
+  canvas.height = 512
+  const context = canvas.getContext('2d')
+  context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, 512, 512)
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      reject(new Error('头像裁剪失败'))
+      return
+    }
+    resolve(new File([blob], 'avatar-cropped.jpg', { type: 'image/jpeg' }))
+  }, 'image/jpeg', 0.9)
+})
 
 const disabledFutureDate = (date) => date.getTime() > Date.now()
 
@@ -250,13 +380,13 @@ const saveProfile = async () => {
       birthDate: profileForm.birthDate || null
     }
 
-    if (avatarFile.value) {
-      const uploaded = await uploadAvatar(avatarFile.value)
+    if (avatarFile.value && cropSource.value) {
+      const croppedAvatar = await createCroppedAvatar()
+      const uploaded = await uploadAvatar(croppedAvatar)
       payload.avatar = uploaded.objectKey
     }
 
     await profileStore.updateUserInfo(payload)
-    avatarFile.value = null
     profileEditorVisible.value = false
     ElMessage.success('个人资料已更新')
   } catch (error) {
@@ -264,6 +394,8 @@ const saveProfile = async () => {
     ElMessage.error(message)
   }
 }
+
+onBeforeUnmount(revokeCropSource)
 
 const getDate = (dateStr) => new Date(dateStr)
 
@@ -632,7 +764,7 @@ const getContentPreview = (content, maxLength = 96) => {
 
 .profile-editor-layout {
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
+  grid-template-columns: 250px minmax(0, 1fr);
   gap: 28px;
   align-items: stretch;
 }
@@ -684,6 +816,58 @@ const getContentPreview = (content, maxLength = 96) => {
   }
 }
 
+.avatar-crop-viewport {
+  position: relative;
+  width: 220px;
+  max-width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 4px solid #fff;
+  border-radius: 50%;
+  background: #e8f4ec;
+  box-shadow: 0 0 0 3px rgba(102, 194, 138, 0.42), 0 10px 24px rgba(62, 126, 85, 0.16);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+
+  &:active { cursor: grabbing; }
+
+  img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    max-width: none;
+    pointer-events: none;
+    transform-origin: center;
+    user-select: none;
+  }
+}
+
+.crop-guide {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.crop-zoom {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 220px;
+  max-width: 100%;
+  margin-top: 16px;
+  color: $text-secondary;
+  font-size: 11px;
+
+  input {
+    width: 100%;
+    accent-color: $primary-color;
+  }
+}
+
 .avatar-upload {
   margin-top: 14px;
 }
@@ -697,7 +881,7 @@ const getContentPreview = (content, maxLength = 96) => {
 }
 
 :deep(.profile-editor-dialog) {
-  width: min(760px, calc(100vw - 32px));
+  width: min(820px, calc(100vw - 32px));
 
   .el-dialog__body {
     padding-top: 8px;
@@ -774,6 +958,9 @@ const getContentPreview = (content, maxLength = 96) => {
     grid-template-columns: 1fr;
     gap: 20px;
   }
+
+  .avatar-crop-viewport,
+  .crop-zoom { width: min(220px, 72vw); }
 
   .avatar-actions {
     width: 100%;

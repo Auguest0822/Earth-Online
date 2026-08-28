@@ -6,18 +6,18 @@
         <el-icon class="icon"><MagicStick /></el-icon>
       </div>
       <div class="actions">
-        <el-select style="width: 100px" size="small" placeholder="全部年份" v-model="selectedYear">
+        <el-select class="year-select" size="small" placeholder="全部年份" v-model="selectedYear">
           <el-option label="全部年份" value="all" />
           <el-option v-for="year in yearOptions" :key="year" :label="year" :value="String(year)" />
         </el-select>
-        <el-button type="primary" size="small" @click="handleCreate" style="margin-left: 8px;">
+        <el-button class="create-button" type="primary" size="small" @click="handleCreate">
           <el-icon><Plus /></el-icon> 新增
         </el-button>
       </div>
     </div>
 
     <div class="timeline-wrapper">
-      <div class="timeline-line"></div>
+      <div v-if="groupedTimelines.length" class="timeline-line"></div>
       
       <div v-if="!groupedTimelines.length" class="empty-state">
         <div class="empty-orbit" aria-hidden="true">
@@ -552,7 +552,9 @@ const removePhoto = (index) => {
     display: flex;
     gap: 12px;
     align-items: center;
-    
+
+    .year-select { width: 112px; }
+    .create-button { margin-left: 0; }
   }
 }
 
@@ -934,6 +936,55 @@ const removePhoto = (index) => {
 .photo-grid--3 .preview-item:first-child { grid-row: span 2; }
 
 @media (max-width: 640px) {
+  .module-card { padding: 16px; }
+  .module-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 18px;
+
+    .title h3 { white-space: nowrap; }
+    .actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      width: 100%;
+    }
+    .actions .year-select { width: 100%; }
+  }
+
+  .timeline-wrapper { padding-left: 0; }
+  .timeline-wrapper .timeline-line { left: 6px; }
+  .timeline-item {
+    padding-left: 26px;
+    flex-direction: column;
+
+    .date-label {
+      position: static;
+      width: auto;
+      margin-bottom: 8px;
+      align-items: baseline;
+      flex-direction: row;
+      gap: 6px;
+      text-align: left;
+    }
+    .dot { left: 0; top: 5px; }
+  }
+  .event-list { width: auto; margin-left: 0; }
+  .event-card { padding: 15px 14px; }
+  .empty-state {
+    min-height: 340px;
+    padding: 20px 4px 10px;
+  }
+  .empty-state .empty-copy { margin-top: 10px; }
+  .empty-state .empty-actions {
+    width: min(100%, 260px);
+    flex-direction: column;
+  }
+  .empty-state .empty-actions :deep(.el-button) {
+    width: 100%;
+    margin-left: 0;
+  }
+
   :deep(.record-dialog) { width: calc(100% - 24px) !important; }
   .record-stage { padding: 18px 12px; background-position: 68% center; }
   .record-banner { min-height: 70px; padding: 2px 6px 14px; }
