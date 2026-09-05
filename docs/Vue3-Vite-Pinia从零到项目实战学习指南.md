@@ -741,7 +741,6 @@ searchController = new AbortController()
 watch(
   () => [
     props.eventsData,
-    props.moodTrend,
     props.timelines,
     trendRange.value,
     trendYear.value
@@ -1227,7 +1226,6 @@ state: () => ({
   profileLoading: false,
   timelines: [],
   eventsData: [],
-  moodTrend: [],
   keywords: [],
   futureLetters: []
 })
@@ -1240,7 +1238,7 @@ state: () => ({
 - 用户资料：`userInfo`；
 - 请求状态：`profileLoading`、`backendAvailable`；
 - 原始业务数据：`timelines`、`futureLetters`；
-- 统计派生数据：`eventsData`、`moodTrend`、`keywords`。
+- 统计派生数据：`eventsData`、`keywords`。
 
 ## 12.2 getter
 
@@ -2235,4 +2233,3 @@ recordCount: state => state.timelines.length
 10. 为什么定时器、请求和 WebSocket 需要在组件卸载时清理？
 
 可以完整回答这些问题，并完成第二十章练习，就已经具备继续独立阅读和修改 Earth Online 前端代码的基础。
-

@@ -209,6 +209,13 @@
             <el-button v-if="capsule.status === 'draft'" size="small" @click="editDraft(capsule)">继续编辑</el-button>
             <el-button v-else-if="capsule.status === 'sealed' && canOpen(capsule.openAt)" size="small" type="success" @click="openCapsule(capsule)">开启信件</el-button>
             <el-button v-else-if="capsule.status === 'opened'" size="small" @click="viewOpenedLetter(capsule)">查看信件</el-button>
+            <el-button
+              size="small"
+              type="danger"
+              plain
+              :loading="deletingLetterId === capsule.id"
+              @click="removeLetter(capsule)"
+            >删除</el-button>
           </div>
         </article>
       </div>
@@ -220,14 +227,24 @@
         <p class="opened-letter__content">{{ openedLetter.content }}</p>
         <span v-if="openedLetter.mood">{{ openedLetter.mood }}</span>
       </article>
+      <template #footer>
+        <el-button @click="letterDetailVisible = false">关闭</el-button>
+        <el-button
+          v-if="openedLetter"
+          type="danger"
+          plain
+          :loading="deletingLetterId === openedLetter.id"
+          @click="removeLetter(openedLetter)"
+        >删除信件</el-button>
+      </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { createFutureLetter, listFutureLetters, openFutureLetter, updateFutureLetter } from '@/api/modules/futureLetters'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { createFutureLetter, deleteFutureLetter, listFutureLetters, openFutureLetter, updateFutureLetter } from '@/api/modules/futureLetters'
 import { isServiceUnavailableError } from '@/api/httpClient'
 
 const moodOptions = ['期待', '平静', '勇敢', '迷茫', '快乐']
@@ -301,6 +318,7 @@ const editingDraftId = ref(null)
 const savingLetter = ref(false)
 const letterDetailVisible = ref(false)
 const openedLetter = ref(null)
+const deletingLetterId = ref(null)
 
 const sealedCount = computed(() => capsules.value.filter(item => item.status === 'sealed').length)
 const openedCount = computed(() => capsules.value.filter(item => item.status === 'opened').length)
@@ -463,6 +481,39 @@ const openCapsule = async capsule => {
     ElMessage.success('信件已开启')
   } catch (error) {
     ElMessage.error(error.message || '信件开启失败')
+  }
+}
+
+const removeLetter = async capsule => {
+  try {
+    await ElMessageBox.confirm(
+      `确定永久删除“${capsule.title}”吗？删除后无法恢复。`,
+      '删除未来信件',
+      {
+        confirmButtonText: '确认删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
+  } catch {
+    return
+  }
+
+  deletingLetterId.value = capsule.id
+  try {
+    await deleteFutureLetter(capsule.id)
+    capsules.value = capsules.value.filter(item => item.id !== capsule.id)
+    if (editingDraftId.value === capsule.id) editingDraftId.value = null
+    if (openedLetter.value?.id === capsule.id) {
+      letterDetailVisible.value = false
+      openedLetter.value = null
+    }
+    ElMessage.success('信件已删除')
+  } catch (error) {
+    ElMessage.error(error.message || '信件删除失败')
+  } finally {
+    deletingLetterId.value = null
   }
 }
 
@@ -988,8 +1039,12 @@ onMounted(async () => {
 
 .capsule-actions {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: flex-end;
   margin-top: 14px;
+
+  :deep(.el-button + .el-button) { margin-left: 0; }
 }
 
 .opened-letter__date {

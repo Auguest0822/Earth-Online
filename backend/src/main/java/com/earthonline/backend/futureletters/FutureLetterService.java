@@ -112,14 +112,14 @@ public class FutureLetterService {
     public void delete(String username, Long id) {
         Long userId = requireUserId(username);
 
-        if (!futureLetterRepository.existsByIdAndUserId(id, userId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "未来信件不存在"
-            );
-        }
+        FutureLetterEntity entity = futureLetterRepository
+                .findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "未来信件不存在"
+                ));
 
-        futureLetterRepository.deleteByIdAndUserId(id, userId);
+        futureLetterRepository.delete(entity);
     }
 
     public FutureLetterResponse open(String username, Long id) {

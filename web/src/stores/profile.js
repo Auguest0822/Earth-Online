@@ -97,12 +97,6 @@ const buildKeywordCloud = (timelines) => {
     .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name, 'zh-CN'))
 }
 
-const MOOD_SCORE_MAP = {
-  '😊': 9, '😌': 7, '🥰': 8, '🤔': 6, '🥳': 9, '😴': 4,
-  '😭': 3, '😤': 3, '😔': 3, '😱': 4, '😎': 8, '😶': 5,
-  '😡': 2, '😍': 8, '😳': 6, '🤩': 8
-}
-
 const buildEventsData = (timelines) => {
   const counts = new Map()
   timelines.forEach((timeline) => {
@@ -110,23 +104,6 @@ const buildEventsData = (timelines) => {
     counts.set(type, (counts.get(type) || 0) + 1)
   })
   return [...counts.entries()].map(([name, value]) => ({ name, value }))
-}
-
-const buildMoodTrend = (timelines) => {
-  const grouped = new Map()
-  timelines.forEach((timeline) => {
-    const mood = timeline.mood || timeline.moods?.[0]
-    const score = MOOD_SCORE_MAP[mood]
-    const year = new Date(timeline.date).getFullYear()
-    if (!Number.isFinite(score) || Number.isNaN(year)) return
-    const current = grouped.get(year) || { total: 0, count: 0 }
-    current.total += score
-    current.count += 1
-    grouped.set(year, current)
-  })
-  return [...grouped.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([year, item]) => ({ year: String(year), score: Number((item.total / item.count).toFixed(1)) }))
 }
 
 const toRecordPayload = (timeline) => ({
@@ -157,7 +134,6 @@ export const useProfileStore = defineStore('profile', {
     profileLoading: false,
     timelines: [],
     eventsData: [],
-    moodTrend: [],
     keywords: [],
     futureLetters: []
   }),
@@ -171,7 +147,6 @@ export const useProfileStore = defineStore('profile', {
       this.backendMessage = ''
       this.timelines = []
       this.eventsData = []
-      this.moodTrend = []
       this.keywords = []
       this.futureLetters = []
     },
@@ -214,7 +189,6 @@ export const useProfileStore = defineStore('profile', {
       const futureLetters = lettersResult.status === 'fulfilled' ? lettersResult.value : []
       this.timelines = (records.items || records).map(toTimeline).sort(sortTimelinesByDateDesc)
       this.eventsData = buildEventsData(this.timelines)
-      this.moodTrend = buildMoodTrend(this.timelines)
       this.keywords = buildKeywordCloud(this.timelines)
       this.futureLetters = futureLetters.items || futureLetters
       this.profileLoading = false
@@ -234,7 +208,6 @@ export const useProfileStore = defineStore('profile', {
         this.timelines.sort(sortTimelinesByDateDesc)
         this.keywords = buildKeywordCloud(this.timelines)
         this.eventsData = buildEventsData(this.timelines)
-        this.moodTrend = buildMoodTrend(this.timelines)
       } catch (error) {
         this.timelines = this.timelines.filter(item => item.id !== payload.id)
         throw error
@@ -246,14 +219,12 @@ export const useProfileStore = defineStore('profile', {
       this.timelines = this.timelines.map(item => item.id === timeline.id ? toTimeline(saved) : item)
       this.keywords = buildKeywordCloud(this.timelines)
       this.eventsData = buildEventsData(this.timelines)
-      this.moodTrend = buildMoodTrend(this.timelines)
     },
     async deleteTimeline(id) {
       await deleteRecord(id)
       this.timelines = this.timelines.filter(t => t.id !== id)
       this.keywords = buildKeywordCloud(this.timelines)
       this.eventsData = buildEventsData(this.timelines)
-      this.moodTrend = buildMoodTrend(this.timelines)
     },
     async updateUserInfo(userInfo) {
   const saved = await updateProfile(userInfo)
