@@ -2,6 +2,7 @@ package com.earthonline.backend.records;
 
 import com.earthonline.backend.records.dto.CreateRecordRequest;
 import com.earthonline.backend.records.dto.RecordResponse;
+import com.earthonline.backend.records.dto.RecordPageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import org.springframework.security.core.Authentication;
@@ -29,8 +30,15 @@ public class RecordController {
     }
 
     @GetMapping
-    public List<RecordResponse> list(Authentication authentication) {
-        return recordService.list(authentication.getName());
+    public RecordPageResponse list(
+            Authentication authentication,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) @Size(max = 30) String tag,
+            @RequestParam(required = false) @Size(max = 32) String eventType
+    ) {
+        return recordService.listPage(authentication.getName(), page, pageSize, year, tag, eventType);
     }
 
     @GetMapping("/search")

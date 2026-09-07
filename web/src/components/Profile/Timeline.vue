@@ -6,9 +6,15 @@
         <el-icon class="icon"><MagicStick /></el-icon>
       </div>
       <div class="actions">
-        <el-select class="year-select" size="small" placeholder="全部年份" v-model="selectedYear">
+        <el-select class="filter-select" size="small" placeholder="全部年份" v-model="selectedYear" @change="applyFilters">
           <el-option label="全部年份" value="all" />
           <el-option v-for="year in yearOptions" :key="year" :label="year" :value="String(year)" />
+        </el-select>
+        <el-select class="filter-select" size="small" placeholder="全部标签" v-model="selectedTag" clearable @change="applyFilters">
+          <el-option v-for="tag in tagOptions" :key="tag" :label="tag" :value="tag" />
+        </el-select>
+        <el-select class="filter-select event-filter" size="small" placeholder="全部事件" v-model="selectedEventType" clearable @change="applyFilters">
+          <el-option v-for="type in filterEventTypeOptions" :key="type" :label="type" :value="type" />
         </el-select>
         <el-button class="create-button" type="primary" size="small" @click="handleCreate">
           <el-icon><Plus /></el-icon> 新增
@@ -16,19 +22,20 @@
       </div>
     </div>
 
-    <div class="timeline-wrapper">
+    <div class="timeline-wrapper" v-loading="profileStore.timelineLoading">
       <div v-if="groupedTimelines.length" class="timeline-line"></div>
       
       <div v-if="!groupedTimelines.length" class="empty-state">
         <div class="empty-orbit" aria-hidden="true">
           <span></span><i></i><b></b>
         </div>
-        <p class="empty-kicker">从第一条记录开始</p>
-        <h4>你的时间线还没有开始</h4>
-        <p class="empty-copy">记录今天的心情、想法或一件小事，让它成为你在地球上的第一段轨迹。</p>
+        <p class="empty-kicker">{{ hasActiveFilters ? '没有匹配的事记' : '从第一条记录开始' }}</p>
+        <h4>{{ hasActiveFilters ? '换个筛选条件试试' : '你的时间线还没有开始' }}</h4>
+        <p class="empty-copy">{{ hasActiveFilters ? '当前年份、标签或事件类型下没有记录。' : '记录今天的心情、想法或一件小事，让它成为你在地球上的第一段轨迹。' }}</p>
         <div class="empty-actions">
-          <el-button type="success" @click="handleCreate"><el-icon><EditPen /></el-icon>记录此刻</el-button>
-          <el-button plain @click="goHome">去首页看看</el-button>
+          <el-button v-if="hasActiveFilters" type="success" @click="clearFilters">清除筛选</el-button>
+          <el-button v-else type="success" @click="handleCreate"><el-icon><EditPen /></el-icon>记录此刻</el-button>
+          <el-button v-if="!hasActiveFilters" plain @click="goHome">去首页看看</el-button>
         </div>
       </div>
 
@@ -133,10 +140,17 @@
       </article>
     </el-dialog>
 
-    <div v-if="groupedTimelines.length" class="load-more">
-      <el-button type="success" plain round size="small">
-        <el-icon><ArrowDown /></el-icon> 查看更多事记
-      </el-button>
+    <div v-if="profileStore.timelinePagination.total > 0" class="timeline-pagination">
+      <el-pagination
+        background
+        :current-page="currentPage"
+        :page-size="pageSize"
+        :page-sizes="[10, 20]"
+        :total="profileStore.timelinePagination.total"
+        layout="total, sizes, prev, pager, next"
+        @current-change="changePage"
+        @size-change="changePageSize"
+      />
     </div>
 
     <!-- 弹窗：新增/编辑时间轴 -->
@@ -238,20 +252,24 @@
 <script setup>
 import defaultAvatar from '@/assets/picture/default-avatar.png'
 import { ref, reactive, computed, nextTick, onBeforeUnmount, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useProfileStore } from '@/stores/profile'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { uploadRecordImage } from '@/api/modules/uploads'
 import recordBanner from '@/assets/picture/timeline-record-banner.png'
 
 const props = defineProps({
-  timelines: Array,
   targetRecordId: { type: String, default: '' }
 })
 
 const profileStore = useProfileStore()
+const route = useRoute()
 const router = useRouter()
 const selectedYear = ref('all')
+const selectedTag = ref('')
+const selectedEventType = ref('')
+const currentPage = ref(1)
+const pageSize = ref(10)
 const photoInput = ref(null)
 const detailVisible = ref(false)
 const selectedItem = ref(null)
@@ -259,10 +277,9 @@ const highlightedRecordId = ref('')
 let highlightTimer = null
 
 watch(
-  () => [props.targetRecordId, props.timelines?.length],
+  () => [props.targetRecordId, profileStore.timelines.length],
   async ([recordId]) => {
     if (!recordId) return
-    selectedYear.value = 'all'
     await nextTick()
     const element = document.getElementById(`record-${recordId}`)
     if (!element) return
@@ -298,6 +315,70 @@ const moodOptions = ['😊', '😌', '🥰', '🤔', '🥳', '😴', '😢', '�
 
 const eventTypeOptions = ['生活日常', '学习成长', '工作 / 学业', '健康运动', '旅行探索', '人际关系', '其他']
 
+const yearOptions = computed(() => profileStore.timelineFilterOptions.years)
+const tagOptions = computed(() => profileStore.timelineFilterOptions.tags)
+const filterEventTypeOptions = computed(() => profileStore.timelineFilterOptions.eventTypes)
+const hasActiveFilters = computed(() => selectedYear.value !== 'all' || Boolean(selectedTag.value) || Boolean(selectedEventType.value))
+
+const parsePositiveInteger = (value, fallback) => {
+  const parsed = Number.parseInt(String(value || ''), 10)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
+}
+
+const loadTimelinePage = async () => {
+  try {
+    await profileStore.fetchTimelinePage({
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      year: selectedYear.value === 'all' ? '' : selectedYear.value,
+      tag: selectedTag.value,
+      eventType: selectedEventType.value
+    })
+  } catch (error) {
+    ElMessage.error(error?.message || '时间线加载失败，请稍后重试')
+  }
+}
+
+const replaceFilterQuery = (page = 1, size = pageSize.value) => {
+  const query = { ...route.query }
+  delete query.record
+  if (selectedYear.value === 'all') delete query.year
+  else query.year = selectedYear.value
+  if (selectedTag.value) query.tag = selectedTag.value
+  else delete query.tag
+  if (selectedEventType.value) query.eventType = selectedEventType.value
+  else delete query.eventType
+  if (page > 1) query.page = String(page)
+  else delete query.page
+  if (size !== 10) query.pageSize = String(size)
+  else delete query.pageSize
+  return router.replace({ query })
+}
+
+const applyFilters = () => replaceFilterQuery(1)
+const clearFilters = () => {
+  selectedYear.value = 'all'
+  selectedTag.value = ''
+  selectedEventType.value = ''
+  return replaceFilterQuery(1)
+}
+const changePage = (page) => replaceFilterQuery(page)
+const changePageSize = (size) => replaceFilterQuery(1, size)
+
+watch(
+  () => route.query,
+  async (query) => {
+    selectedYear.value = /^\d{4}$/.test(String(query.year || '')) ? String(query.year) : 'all'
+    selectedTag.value = typeof query.tag === 'string' ? query.tag : ''
+    selectedEventType.value = typeof query.eventType === 'string' ? query.eventType : ''
+    currentPage.value = parsePositiveInteger(query.page, 1)
+    const requestedPageSize = parsePositiveInteger(query.pageSize, 10)
+    pageSize.value = [10, 20].includes(requestedPageSize) ? requestedPageSize : 10
+    await loadTimelinePage()
+  },
+  { immediate: true }
+)
+
 const parseDateParts = (dateStr) => {
   const date = new Date(dateStr)
   if (Number.isNaN(date.getTime())) return null
@@ -323,28 +404,9 @@ const formatRecordDateTime = (item) => {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`
 }
 
-const filteredTimelines = computed(() => {
-  if (selectedYear.value === 'all') {
-    return props.timelines
-  }
-  return props.timelines.filter((item) => {
-    const parts = parseDateParts(item.date)
-    return parts ? String(parts.year) === selectedYear.value : false
-  })
-})
-
-const yearOptions = computed(() => {
-  const years = new Set()
-  props.timelines.forEach((item) => {
-    const parts = parseDateParts(item.date)
-    if (parts) years.add(parts.year)
-  })
-  return Array.from(years).sort((a, b) => b - a)
-})
-
 const groupedTimelines = computed(() => {
   const groups = new Map()
-  const sorted = [...filteredTimelines.value].sort((a, b) => getRecordTimestamp(b) - getRecordTimestamp(a))
+  const sorted = [...profileStore.timelines].sort((a, b) => getRecordTimestamp(b) - getRecordTimestamp(a))
 
   sorted.forEach((item) => {
     const parts = parseDateParts(item.date)
@@ -437,6 +499,11 @@ const handleDelete = async (id) => {
       type: 'warning'
     })
     await profileStore.deleteTimeline(id)
+    if (profileStore.timelines.length === 0 && currentPage.value > 1) {
+      await replaceFilterQuery(currentPage.value - 1)
+    } else {
+      await loadTimelinePage()
+    }
     ElMessage.success('删除成功')
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') {
@@ -474,6 +541,7 @@ const submitForm = async () => {
       await profileStore.updateTimeline(payload)
       ElMessage.success('修改成功')
     }
+    await loadTimelinePage()
     dialogVisible.value = false
   } catch (error) {
     ElMessage.error(error?.message || '图片或记录保存失败，请重试')
@@ -553,7 +621,8 @@ const removePhoto = (index) => {
     gap: 12px;
     align-items: center;
 
-    .year-select { width: 112px; }
+    .filter-select { width: 118px; }
+    .event-filter { width: 132px; }
     .create-button { margin-left: 0; }
   }
 }
@@ -796,13 +865,10 @@ const removePhoto = (index) => {
   .empty-actions { display: flex; gap: 10px; }
 }
 
-.load-more {
-  text-align: center;
-  margin-top: 20px;
-  
-  .el-button {
-    width: 200px;
-  }
+.timeline-pagination {
+  display: flex;
+  margin-top: 24px;
+  justify-content: center;
 }
 
 :deep(.record-dialog .el-dialog__header) {
@@ -946,10 +1012,11 @@ const removePhoto = (index) => {
     .title h3 { white-space: nowrap; }
     .actions {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       width: 100%;
     }
-    .actions .year-select { width: 100%; }
+    .actions .filter-select { width: 100%; }
+    .actions .create-button { width: 100%; }
   }
 
   .timeline-wrapper { padding-left: 0; }
@@ -992,5 +1059,7 @@ const removePhoto = (index) => {
   .record-form { padding: 16px 12px 2px; }
   .upload-tip { display: block; margin: 8px 0 0; }
   .photo-grid { max-width: 100%; }
+  .timeline-pagination { overflow-x: auto; justify-content: flex-start; }
+  .timeline-pagination :deep(.el-pagination__total) { display: none; }
 }
 </style>

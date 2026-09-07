@@ -132,7 +132,10 @@ export const useProfileStore = defineStore('profile', {
     backendAvailable: true,
     backendMessage: '',
     profileLoading: false,
+    timelineLoading: false,
     timelines: [],
+    timelinePagination: { page: 1, pageSize: 10, total: 0, totalPages: 0 },
+    timelineFilterOptions: { years: [], tags: [], eventTypes: [] },
     eventsData: [],
     keywords: [],
     futureLetters: []
@@ -146,9 +149,45 @@ export const useProfileStore = defineStore('profile', {
       this.backendAvailable = true
       this.backendMessage = ''
       this.timelines = []
+      this.timelinePagination = { page: 1, pageSize: 10, total: 0, totalPages: 0 }
+      this.timelineFilterOptions = { years: [], tags: [], eventTypes: [] }
       this.eventsData = []
       this.keywords = []
       this.futureLetters = []
+    },
+    async fetchCurrentUser() {
+      const user = await getCurrentUser()
+      this.userInfo = {
+        id: user.id,
+        publicId: user.publicId,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar,
+        slogan: user.slogan,
+        birthDate: user.birthDate
+      }
+      return this.userInfo
+    },
+    async fetchTimelinePage(params = {}) {
+      this.timelineLoading = true
+      try {
+        const result = await listRecords(params)
+        this.timelines = (result.items || []).map(toTimeline).sort(sortTimelinesByDateDesc)
+        this.timelinePagination = {
+          page: result.page || 1,
+          pageSize: result.pageSize || 10,
+          total: result.total || 0,
+          totalPages: result.totalPages || 0
+        }
+        this.timelineFilterOptions = {
+          years: result.years || [],
+          tags: result.tags || [],
+          eventTypes: result.eventTypes || []
+        }
+        return result
+      } finally {
+        this.timelineLoading = false
+      }
     },
     async fetchProfileData() {
       if (this.profileLoading) return { available: this.backendAvailable }

@@ -1,6 +1,6 @@
 <template>
-  <div class="timeline-page" v-if="profileStore.userInfo">
-    <Timeline :timelines="profileStore.timelines" :target-record-id="targetRecordId" />
+  <div class="timeline-page">
+    <Timeline :target-record-id="targetRecordId" />
   </div>
 </template>
 
@@ -15,7 +15,7 @@ const route = useRoute()
 const targetRecordId = computed(() => route.query.record ? String(route.query.record) : '')
 
 onMounted(() => {
-  profileStore.fetchProfileData()
+  profileStore.fetchCurrentUser()
 })
 </script>
 

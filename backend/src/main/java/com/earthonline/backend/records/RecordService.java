@@ -2,6 +2,7 @@ package com.earthonline.backend.records;
 
 import com.earthonline.backend.records.dto.CreateRecordRequest;
 import com.earthonline.backend.records.dto.RecordResponse;
+import com.earthonline.backend.records.dto.RecordPageResponse;
 import com.earthonline.backend.storage.StorageService;
 import com.earthonline.backend.user.UserEntity;
 import com.earthonline.backend.user.UserRepository;
@@ -38,6 +39,43 @@ public class RecordService {
                 .stream()
                 .map(entity -> toResponse(entity, username))
                 .toList();
+    }
+
+    public RecordPageResponse listPage(
+            String username,
+            int page,
+            int pageSize,
+            Integer year,
+            String tag,
+            String eventType
+    ) {
+        Long userId = requireUserId(username);
+        int safePage = Math.max(1, page);
+        int safePageSize = Math.min(100, Math.max(1, pageSize));
+        String normalizedTag = normalizeOptionalFilter(tag);
+        String normalizedEventType = normalizeOptionalFilter(eventType);
+        LocalDate startDate = year == null ? null : LocalDate.of(year, 1, 1);
+        LocalDate endDate = year == null ? null : LocalDate.of(year, 12, 31);
+
+        var result = recordRepository.findPageByFilters(
+                userId,
+                startDate,
+                endDate,
+                normalizedEventType,
+                normalizedTag,
+                PageRequest.of(safePage - 1, safePageSize)
+        );
+
+        return new RecordPageResponse(
+                result.getContent().stream().map(entity -> toResponse(entity, username)).toList(),
+                result.getTotalElements(),
+                safePage,
+                safePageSize,
+                result.getTotalPages(),
+                recordRepository.findDistinctYearsByUserId(userId),
+                recordRepository.findDistinctTagsByUserId(userId),
+                recordRepository.findDistinctEventTypesByUserId(userId)
+        );
     }
 
     public List<RecordResponse> search(String username, String query) {
@@ -186,5 +224,9 @@ public class RecordService {
 
     private String normalizeEventType(String eventType) {
         return eventType == null || eventType.isBlank() ? "生活日常" : eventType.trim();
+    }
+
+    private String normalizeOptionalFilter(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }
