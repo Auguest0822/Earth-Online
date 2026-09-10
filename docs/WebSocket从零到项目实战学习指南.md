@@ -160,7 +160,7 @@ public class WebSocketConfig
 ```java
 @Override
 public void configureMessageBroker(MessageBrokerRegistry registry) {
-    registry.enableSimpleBroker("/user");
+    registry.enableSimpleBroker("/queue", "/topic");
     registry.setApplicationDestinationPrefixes("/app");
     registry.setUserDestinationPrefix("/user");
 }
@@ -168,9 +168,18 @@ public void configureMessageBroker(MessageBrokerRegistry registry) {
 
 逐句理解：
 
-1. `enableSimpleBroker("/user")`：开启 Spring 内存消息代理。
+1. `enableSimpleBroker("/queue", "/topic")`：开启 Spring 内存消息代理。参数是**代理真正要处理的目的地前缀**，Spring 内部用 `checkDestinationPrefix` 过滤：目的地不以这些前缀开头的消息会被直接丢弃。
 2. `setApplicationDestinationPrefixes("/app")`：发往 `/app/**` 的消息交给 Java 的 `@MessageMapping`。
-3. `setUserDestinationPrefix("/user")`：私人消息使用 `/user` 前缀。
+3. `setUserDestinationPrefix("/user")`：客户端用 `/user/**` 表示“发给某个人”的私人目的地。
+
+> 常见误区：把 `enableSimpleBroker` 写成 `/user`。
+> 浏览器订阅 `/user/queue/chat/messages`、后端执行
+> `convertAndSendToUser(username, "/queue/chat/messages", payload)` 时，
+> Spring 的 `DefaultUserDestinationResolver` 会先把目的地翻译成
+> `/queue/chat/messages-user{sessionId}` 再交给代理。
+> 如果代理前缀里没有 `/queue`，翻译后的目的地匹配不上任何前缀，消息会被静默丢弃：
+> 页面看起来“能发消息、要刷新才能看到新消息”，而且提示音也不会响，
+> 因为提示音只在收到实时推送时才播放。
 
 ### 5.3 注册握手端点
 
@@ -208,7 +217,11 @@ REST 每次请求都携带 HTTP Header。WebSocket 握手后是一条长期连�
 ```java
 @Override
 public Message<?> preSend(Message<?> message, MessageChannel channel) {
-    StompHeaderAccessor accessor = StompHeaderAccessor.wrap(message);
+    // 取消息原本的 accessor，不能用 StompHeaderAccessor.wrap(message)
+    StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+    if (accessor == null) {
+        accessor = StompHeaderAccessor.wrap(message);
+    }
 
     if (StompCommand.CONNECT.equals(accessor.getCommand())) {
         // 只在建立 STOMP 会话时验证
@@ -218,6 +231,16 @@ public Message<?> preSend(Message<?> message, MessageChannel channel) {
 ```
 
 `preSend` 表示消息进入通道前执行。`StompHeaderAccessor` 用于读取 STOMP 命令和 Header。
+
+> 关键点：必须用 `MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class)`
+> 取消息**原本的** accessor，不能用 `StompHeaderAccessor.wrap(message)`。
+> `wrap(message)` 内部是 `new StompHeaderAccessor(message)`，只是复制出一份副本：
+> 在副本上读写没问题，但 `setUser` 写的是副本自己的 Header，
+> 既不会写回消息，也不会触发 `StompSubProtocolHandler` 注册的 `userChangeCallback`。
+> 后果是 WebSocket 会话没有 Principal、`SimpUserRegistry`（在线用户表）里也没有这个人，
+> 之后 `convertAndSendToUser(username, ...)` 找不到会话，
+> 新消息、已读回执、好友事件等所有私人队列推送都会被静默丢弃——
+> 表现为“聊天要刷新页面才能看到新消息、提示音也不响”。
 
 ### 6.2 读取并验证 Token
 

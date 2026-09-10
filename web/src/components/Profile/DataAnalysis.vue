@@ -15,7 +15,18 @@
     <div class="charts-container">
       <div v-show="activeTab === 'events'" class="chart-box">
         <h4 class="chart-title">事件类型分布</h4>
-        <div ref="pieChartRef" class="chart-content"></div>
+        <div v-if="hasEvents" ref="pieChartRef" class="chart-content"></div>
+        <div v-else class="chart-empty-state">
+          <div class="empty-orbit" aria-hidden="true">
+            <span class="empty-orbit__core">✦</span>
+            <i></i><b></b>
+          </div>
+          <p class="chart-empty-state__eyebrow">等待第一段轨迹</p>
+          <h5>还没有事件类型分布</h5>
+          <p>记录一次生活、学习或旅行，
+            <br />这里会慢慢呈现你的生活地图。</p>
+          <button type="button" @click="emit('create-record')">记录第一件事</button>
+        </div>
       </div>
 
       <WordCloudCard v-show="activeTab === 'keywords'" :keywords="keywords" embedded />
@@ -25,20 +36,25 @@
 </template>
 
 <script setup>
-import { ref, onBeforeUnmount, onMounted, watch, nextTick } from 'vue'
+import { computed, ref, onBeforeUnmount, onMounted, watch, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import WordCloudCard from './WordCloudCard.vue'
 
 const props = defineProps({
-  eventsData: Array,
+  eventsData: {
+    type: Array,
+    default: () => []
+  },
   keywords: {
     type: Array,
     default: () => []
   }
 })
+const emit = defineEmits(['create-record'])
 
 const pieChartRef = ref(null)
 const activeTab = ref('events')
+const hasEvents = computed(() => props.eventsData.length > 0)
 const tabs = [
   { key: 'events', label: '事件类型分布' },
   { key: 'keywords', label: '关键词云' }
@@ -54,8 +70,9 @@ const selectTab = async (tab) => {
 
 const initCharts = () => {
   if (pieChart) pieChart.dispose()
+  pieChart = null
 
-  if (pieChartRef.value && props.eventsData.length) {
+  if (pieChartRef.value && hasEvents.value) {
     pieChart = echarts.init(pieChartRef.value)
     pieChart.setOption({
       tooltip: { trigger: 'item' },
@@ -171,6 +188,65 @@ watch(() => props.eventsData, () => {
     width: 100%;
   }
 
+  .chart-empty-state {
+    display: flex;
+    height: clamp(250px, 22vw, 310px);
+    padding: 12px;
+    align-items: center;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+
+    .empty-orbit {
+      position: relative;
+      width: 88px;
+      height: 88px;
+      margin-bottom: 14px;
+      border: 2px dashed rgba(102, 194, 138, .42);
+      border-radius: 50%;
+      animation: orbit-breathe 3.2s ease-in-out infinite;
+
+      &::before {
+        position: absolute;
+        inset: 15px;
+        content: '';
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 30%, #e9faef, #bce9ca);
+      }
+      .empty-orbit__core {
+        position: absolute;
+        z-index: 1;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: #4fa875;
+        font-size: 24px;
+      }
+      i, b { position: absolute; z-index: 2; display: block; border-radius: 50%; }
+      i { top: 8px; right: 9px; width: 12px; height: 12px; background: $primary-color; box-shadow: 0 0 0 4px #fafafa; }
+      b { bottom: 16px; left: 3px; width: 7px; height: 7px; background: #f1c879; }
+    }
+
+    &__eyebrow { margin: 0 0 7px; color: $primary-color; font-size: 11px; font-weight: 700; letter-spacing: .12em; }
+    h5 { margin: 0; color: $text-main; font-size: 18px; }
+    > p:not(.chart-empty-state__eyebrow) { margin: 10px 0 16px; color: $text-secondary; font-size: 13px; line-height: 1.7; }
+    button {
+      padding: 8px 14px;
+      border: 1px solid rgba(79, 168, 117, .3);
+      border-radius: 999px;
+      color: #378b5e;
+      background: #effaf2;
+      font-size: 12px;
+      cursor: pointer;
+      transition: .2s ease;
+      &:hover { color: #fff; background: $primary-color; box-shadow: 0 5px 12px rgba(79, 168, 117, .22); }
+    }
+  }
+
+}
+
+@keyframes orbit-breathe {
+  50% { transform: scale(1.04); box-shadow: 0 0 0 9px rgba(102, 194, 138, .05); }
 }
 
 @media (max-width: 560px) {

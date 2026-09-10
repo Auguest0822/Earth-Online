@@ -5,6 +5,7 @@ import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Component;
@@ -27,7 +28,17 @@ public class WebSocketJwtChannelInterceptor implements ChannelInterceptor {
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
-        StompHeaderAccessor accessor = StompHeaderAccessor.wrap(message);
+        // 必须取出消息原本的 accessor，不能直接用 StompHeaderAccessor.wrap(message)：
+        // wrap(...) 返回的是 new StompHeaderAccessor(message) 副本，
+        // 在副本上 setUser 既不会写进消息头，也不会触发 StompSubProtocolHandler
+        // 注册的 userChangeCallback，于是 WebSocket 会话没有 Principal、
+        // SimpUserRegistry 里也没有这个用户，
+        // 之后 SimpMessagingTemplate.convertAndSendToUser(username, ...) 找不到会话，
+        // 新消息、已读回执、好友事件等私人队列推送都会被静默丢弃。
+        StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+        if (accessor == null) {
+            accessor = StompHeaderAccessor.wrap(message);
+        }
 
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
             String authorization = accessor.getFirstNativeHeader("Authorization");

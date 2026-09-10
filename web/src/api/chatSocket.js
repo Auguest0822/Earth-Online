@@ -61,7 +61,12 @@ export const connectChatSocket = ({ onMessage, onReadReceipt, onFriendEvent, onC
       if (reconnected) onReconnect?.()
     },
     onWebSocketClose: () => onConnectionChange?.(false),
+    onWebSocketError: event => {
+      onConnectionChange?.(false)
+      console.error('聊天 WebSocket 连接失败。请检查服务器的 CHAT_WEBSOCKET_ALLOWED_ORIGIN_PATTERNS 配置。', event)
+    },
     onStompError: frame => {
+      onConnectionChange?.(false)
       console.error('聊天 WebSocket 错误', frame.headers.message || frame.body)
     }
   })

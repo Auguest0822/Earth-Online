@@ -40,3 +40,10 @@ deepseek:
   model: ${DEEPSEEK_MODEL:deepseek-chat}
   connect-timeout-seconds: ${DEEPSEEK_CONNECT_TIMEOUT_SECONDS:10}
   read-timeout-seconds: ${DEEPSEEK_READ_TIMEOUT_SECONDS:60}
+
+# WebSocket 握手同样要校验浏览器 Origin。部署时配置为实际站点地址，
+# 例如 CHAT_WEBSOCKET_ALLOWED_ORIGIN_PATTERNS=http://190.92.245.191,http://localhost:5173
+# localhost 与 127.0.0.1 属于不同 Origin，本地测试两个都要保留。
+chat:
+  websocket:
+    allowed-origin-patterns: ${CHAT_WEBSOCKET_ALLOWED_ORIGIN_PATTERNS:http://localhost:5173,http://127.0.0.1:5173}

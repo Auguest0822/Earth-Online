@@ -117,7 +117,7 @@
                   >
                     <template #error><span class="message-image__error">图片暂时无法加载</span></template>
                   </el-image>
-                  <div v-else class="message-bubble"><p>{{ message.content }}</p></div>
+                  <div v-else class="message-bubble" :class="{ 'message-bubble--sticker': isStickerMessage(message) }"><p>{{ message.content }}</p></div>
                   <button
                     v-if="message.mine && message.deliveryStatus === 'failed'"
                     type="button"
@@ -133,11 +133,15 @@
 
         <footer class="chat-editor">
           <div class="editor-tools">
+            <button type="button" title="发送表情" :aria-expanded="stickerPickerVisible" @click="stickerPickerVisible = !stickerPickerVisible">☺</button>
             <button type="button" title="发送图片" :disabled="uploadingImage" @click="chatImageInput?.click()">
               <el-icon><Picture /></el-icon>
             </button>
             <span v-if="uploadingImage">图片上传中…</span>
             <input ref="chatImageInput" type="file" accept="image/jpeg,image/png,image/webp" hidden @change="handleChatImageSelect" />
+          </div>
+          <div v-if="stickerPickerVisible" class="sticker-panel" aria-label="表情面板">
+            <button v-for="sticker in stickerOptions" :key="sticker" type="button" :title="`发送 ${sticker}`" :disabled="sendingMessage" @click="sendSticker(sticker)">{{ sticker }}</button>
           </div>
           <el-input v-model="draft" type="textarea" :rows="3" resize="none" maxlength="500" show-word-limit placeholder="输入想对好友说的话…" @keyup.enter.exact.prevent="handleSendMessage" />
           <div class="editor-footer">
@@ -245,11 +249,13 @@ const messages = ref([])
 const loadingMessages = ref(false)
 const sendingMessage = ref(false)
 const uploadingImage = ref(false)
+const stickerPickerVisible = ref(false)
 const chatContent = ref(null)
 const chatImageInput = ref(null)
 const messageTimeouts = new Map()
 const receivedMessageIds = new Set()
 const MESSAGE_TIMEOUT_MS = 10000
+const stickerOptions = ['😀', '🥳', '😭', '😤', '😴', '❤️', '👍', '🎉', '✨', '🌱', '🌍', '🚀']
 const chatNotificationStore = useChatNotificationStore()
 let unsubscribeChatEvents = null
 
@@ -548,6 +554,17 @@ const handleSendMessage = async () => {
   }
 }
 
+const sendSticker = async sticker => {
+  if (sendingMessage.value || !selectedFriend.value) return
+  stickerPickerVisible.value = false
+  draft.value = sticker
+  await handleSendMessage()
+}
+
+const isStickerMessage = message => (
+  message?.messageType === 'TEXT' && stickerOptions.includes(message.content)
+)
+
 const handleChatImageSelect = async event => {
   const file = event.target.files?.[0]
   event.target.value = ''
@@ -751,6 +768,7 @@ h2 { margin-bottom:5px; color:$text-main; font-size:24px; }
 .message-body { display:flex; min-width:0; flex-direction:column; align-items:flex-start; }.message-row.mine .message-body { align-items:flex-end; }
 .message-bubble { padding:10px 13px; border-radius:14px 14px 14px 3px; color:$text-main; background:#fff; box-shadow:0 2px 10px rgba(62,126,85,.08); }.message-row.mine .message-bubble { border-radius:14px 14px 3px 14px; color:#fff; background:$primary-color; }
 .message-bubble p { margin:0; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+.message-bubble--sticker { padding:6px 10px; background:transparent !important; box-shadow:none; }.message-bubble--sticker p { font-size:38px; line-height:1.15; }
 .message-image { width:min(260px,42vw); height:180px; overflow:hidden; border-radius:14px; background:#f3f6f3; box-shadow:0 2px 10px rgba(62,126,85,.1); cursor:zoom-in; }
 .message-image__error { display:grid; width:100%; height:100%; padding:16px; place-items:center; color:$text-secondary; font-size:12px; }
 .message-read-state { margin-top:4px; color:$text-secondary; font-size:10px; }
@@ -759,6 +777,7 @@ h2 { margin-bottom:5px; color:$text-main; font-size:24px; }
 .chat-editor { padding:12px 22px 16px; border-top:1px solid rgba(102,194,138,.14); }
 .editor-tools { display:flex; align-items:center; gap:16px; margin:0 0 9px 4px; color:$text-regular; font-size:20px; }
 .editor-tools button { display:grid; padding:0; border:0; color:inherit; background:transparent; font-size:20px; cursor:pointer; }.editor-tools button:disabled { opacity:.5; cursor:not-allowed; }.editor-tools > span { font-size:11px; }
+.sticker-panel { display:flex; flex-wrap:wrap; gap:5px; max-width:290px; margin:-2px 0 10px 2px; padding:8px; border:1px solid rgba(102,194,138,.2); border-radius:12px; background:#fff; box-shadow:0 5px 14px rgba(62,126,85,.1); }.sticker-panel button { display:grid; width:36px; height:36px; padding:0; place-items:center; border:0; border-radius:8px; background:transparent; font-size:22px; cursor:pointer; }.sticker-panel button:hover { background:rgba(102,194,138,.14); }.sticker-panel button:disabled { opacity:.5; cursor:not-allowed; }
 .chat-editor :deep(.el-textarea__inner) { border-radius:12px; }
 .editor-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:10px; color:$text-secondary; font-size:12px; }
 .chat-empty { display:grid; height:100%; padding:20px; place-content:center; place-items:center; color:$text-secondary; text-align:center; }

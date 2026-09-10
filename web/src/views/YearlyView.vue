@@ -30,6 +30,7 @@
       <DataAnalysis
         :eventsData="filteredEventsData"
         :keywords="filteredKeywords"
+        @create-record="router.push('/')"
       />
     </div>
 

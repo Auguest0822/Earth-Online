@@ -6,35 +6,63 @@ import { listChatUnreadCounts, markChatMessagesRead } from '@/api/modules/chat'
 const listeners = new Set()
 const receivedMessageIds = new Set()
 let audioContext = null
+let soundUnlockHandlersBound = false
 
 const emit = (type, payload) => {
   listeners.forEach(listener => listener?.[type]?.(payload))
 }
 
-// 不依赖额外音频文件。浏览器要求用户先和页面有过一次交互，
-// 否则会自动拦截播放；这种情况下未读红点仍会正常显示。
+// 不依赖额外音频文件，用 WebAudio 合成一段很短的提示音。
+const ensureAudioContext = () => {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext
+  if (!AudioContextClass) return null
+  audioContext ||= new AudioContextClass()
+  return audioContext
+}
+
 const playNotificationSound = () => {
   try {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext
-    if (!AudioContextClass) return
-    audioContext ||= new AudioContextClass()
+    const context = ensureAudioContext()
+    if (!context) return
     const play = () => {
-      const oscillator = audioContext.createOscillator()
-      const gain = audioContext.createGain()
+      const oscillator = context.createOscillator()
+      const gain = context.createGain()
       oscillator.type = 'sine'
-      oscillator.frequency.setValueAtTime(880, audioContext.currentTime)
-      gain.gain.setValueAtTime(0.0001, audioContext.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.08, audioContext.currentTime + 0.015)
-      gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.18)
-      oscillator.connect(gain).connect(audioContext.destination)
+      oscillator.frequency.setValueAtTime(880, context.currentTime)
+      gain.gain.setValueAtTime(0.0001, context.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.015)
+      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.18)
+      oscillator.connect(gain).connect(context.destination)
       oscillator.start()
-      oscillator.stop(audioContext.currentTime + 0.19)
+      oscillator.stop(context.currentTime + 0.19)
     }
-    if (audioContext.state === 'suspended') audioContext.resume().then(play).catch(() => {})
-    else play()
+    // Chrome/Edge 在用户交互前会把 AudioContext 置为 suspended 并拦截播放。
+    // 这里先尝试恢复再播放，被浏览器拦截时保持静默，未读红点仍然正常显示。
+    if (context.state === 'running') play()
+    else context.resume().then(play).catch(() => {})
   } catch {
     // 通知音失败不影响实时消息和未读数。
   }
+}
+
+// 页面第一次交互时解锁音频上下文，之后收到实时消息才能发出提示音。
+const unlockNotificationSound = () => {
+  try {
+    const context = ensureAudioContext()
+    if (context && context.state !== 'running') context.resume().catch(() => {})
+  } catch {
+    // 忽略：无法创建 AudioContext 时不影响消息接收。
+  }
+}
+
+const bindSoundUnlockHandlers = () => {
+  if (soundUnlockHandlersBound) return
+  soundUnlockHandlersBound = true
+  // 捕获阶段监听，避免子元素 stopPropagation 使解锁失效。
+  const options = { capture: true, passive: true, once: true }
+  ;['pointerdown', 'keydown', 'touchstart'].forEach(type => {
+    window.addEventListener(type, unlockNotificationSound, options)
+  })
 }
 
 export const useChatNotificationStore = defineStore('chatNotifications', {
@@ -69,6 +97,7 @@ export const useChatNotificationStore = defineStore('chatNotifications', {
     },
     async initialize() {
       if (!getAccessToken()) return
+      bindSoundUnlockHandlers()
       if (this.initialized && isChatSocketConnected()) return
       this.initialized = true
       try {
