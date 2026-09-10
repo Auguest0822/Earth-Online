@@ -16,15 +16,20 @@
         :class="{ active: isActive(item.path) }"
         @click="navigate(item.path)"
       >
-        <el-icon v-if="item.icon === 'Friends'" class="friends-icon" viewBox="0 0 24 24">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="7.5" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.8" />
-            <circle cx="16.5" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.8" />
-            <path d="M2.5 19c.25-3.65 2.15-5.6 5-5.6s4.75 1.95 5 5.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-            <path d="M11.5 19c.25-3.65 2.15-5.6 5-5.6s4.75 1.95 5 5.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-          </svg>
-        </el-icon>
-        <el-icon v-else><component :is="item.icon" /></el-icon>
+        <span class="menu-icon-wrap">
+          <el-icon v-if="item.icon === 'Friends'" class="friends-icon" viewBox="0 0 24 24">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="7.5" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.8" />
+              <circle cx="16.5" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.8" />
+              <path d="M2.5 19c.25-3.65 2.15-5.6 5-5.6s4.75 1.95 5 5.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              <path d="M11.5 19c.25-3.65 2.15-5.6 5-5.6s4.75 1.95 5 5.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            </svg>
+          </el-icon>
+          <el-icon v-else><component :is="item.icon" /></el-icon>
+          <span v-if="item.icon === 'Friends' && chatNotificationStore.totalUnread" class="unread-badge" :aria-label="`${chatNotificationStore.totalUnread} 条未读消息`">
+            {{ chatNotificationStore.totalUnread > 99 ? '99+' : chatNotificationStore.totalUnread }}
+          </span>
+        </span>
         <span>{{ item.label }}</span>
       </div>
     </div>
@@ -35,9 +40,11 @@
 <script setup>
 import { useRouter, useRoute } from 'vue-router'
 import logo from '@/assets/picture/logo.png'
+import { useChatNotificationStore } from '@/stores/chatNotifications'
 
 const router = useRouter()
 const route = useRoute()
+const chatNotificationStore = useChatNotificationStore()
 
 const menuItems = [
   { path: '/', label: '首页', icon: 'House' },
@@ -112,6 +119,25 @@ const navigate = (path) => {
 
   .el-icon {
     font-size: 18px;
+  }
+
+  .menu-icon-wrap { position: relative; display: grid; place-items: center; }
+  .unread-badge {
+    position: absolute;
+    top: -8px;
+    right: -13px;
+    display: grid;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    place-items: center;
+    border: 2px solid #f9fdf9;
+    border-radius: 10px;
+    color: #fff;
+    background: #ef5b5b;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
   }
 
   .friends-icon svg { width: 1em; height: 1em; }

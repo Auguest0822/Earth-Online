@@ -170,9 +170,9 @@ import { isServiceUnavailableError } from '@/api/httpClient'
 import { ElMessage } from 'element-plus'
 import { ChatDotRound, Picture, Search, UserFilled } from '@element-plus/icons-vue'
 import { acceptFriendRequest, listFriends, listReceivedFriendRequests, rejectFriendRequest, removeFriend, searchFriendByPublicId, sendFriendRequest } from '@/api/modules/friends'
-import { listChatMessages, listChatUnreadCounts, markChatMessagesRead, sendChatMessage } from '@/api/modules/chat'
+import { listChatMessages, sendChatMessage } from '@/api/modules/chat'
 import { uploadChatImage } from '@/api/modules/uploads'
-import { connectChatSocket, disconnectChatSocket } from '@/api/chatSocket'
+import { useChatNotificationStore } from '@/stores/chatNotifications'
 
 const avatarColors = [
   'linear-gradient(135deg, #92d7b0, #5ea979)',
@@ -245,12 +245,13 @@ const messages = ref([])
 const loadingMessages = ref(false)
 const sendingMessage = ref(false)
 const uploadingImage = ref(false)
-const chatConnected = ref(false)
 const chatContent = ref(null)
 const chatImageInput = ref(null)
 const messageTimeouts = new Map()
 const receivedMessageIds = new Set()
 const MESSAGE_TIMEOUT_MS = 10000
+const chatNotificationStore = useChatNotificationStore()
+let unsubscribeChatEvents = null
 
 const formatFriendsSince = value => {
   if (!value) return ''
@@ -280,14 +281,11 @@ const friendActionText = status => ({
 const loadFriends = async () => {
   loadingFriends.value = true
   try {
-    const [result, unreadResult] = await Promise.all([listFriends(), listChatUnreadCounts()])
+    const [result] = await Promise.all([listFriends(), chatNotificationStore.refreshUnreadCounts()])
     const list = Array.isArray(result) ? result : (result?.content || result?.items || [])
-    const unreadCounts = new Map(
-      (Array.isArray(unreadResult) ? unreadResult : []).map(item => [item.friendPublicId, Number(item.unreadCount) || 0])
-    )
     friends.value = list.map(friend => ({
       ...mapFriend(friend),
-      unreadCount: unreadCounts.get(friend.publicId) || 0
+      unreadCount: chatNotificationStore.unreadFor(friend.publicId)
     }))
     if (!selectedFriend.value || !friends.value.some(friend => friend.id === selectedFriend.value.id)) {
       selectedFriend.value = friends.value[0] || null
@@ -443,9 +441,7 @@ const handleIncomingMessage = message => {
   if (friend) {
     friend.preview = message.messageType === 'IMAGE' ? '[图片]' : message.content
     friend.time = formatMessageTime(message.createdAt)
-    if (!message.mine && selectedFriend.value?.publicId !== friendPublicId) {
-      friend.unreadCount += 1
-    }
+    friend.unreadCount = chatNotificationStore.unreadFor(friendPublicId)
   }
   if (selectedFriend.value?.publicId === friendPublicId) {
     if (message.mine) {
@@ -460,7 +456,9 @@ const handleIncomingMessage = message => {
     }
   }
   if (!message.mine && selectedFriend.value?.publicId === friendPublicId) {
-    markChatMessagesRead(friendPublicId).catch(error => {
+    chatNotificationStore.markFriendRead(friendPublicId).then(() => {
+      if (friend) friend.unreadCount = 0
+    }).catch(error => {
       console.error('标记聊天消息已读失败', error)
     })
   }
@@ -591,14 +589,11 @@ const handleChatImageSelect = async event => {
 }
 
 const refreshUnreadCounts = async () => {
-  const result = await listChatUnreadCounts()
-  const unreadCounts = new Map(
-    (Array.isArray(result) ? result : []).map(item => [item.friendPublicId, Number(item.unreadCount) || 0])
-  )
+  await chatNotificationStore.refreshUnreadCounts()
   friends.value.forEach(friend => {
     friend.unreadCount = selectedFriend.value?.publicId === friend.publicId
       ? 0
-      : (unreadCounts.get(friend.publicId) || 0)
+      : chatNotificationStore.unreadFor(friend.publicId)
   })
 }
 
@@ -671,26 +666,28 @@ watch(selectedFriend, async friend => {
   loadMessages(friend)
   if (friend) {
     try {
-      await markChatMessagesRead(friend.publicId)
+      await chatNotificationStore.markFriendRead(friend.publicId)
+      friend.unreadCount = 0
     } catch (error) {
       console.error('标记聊天消息已读失败', error)
     }
   }
 })
 onMounted(async () => {
-  connectChatSocket({
+  unsubscribeChatEvents = chatNotificationStore.subscribe({
     onMessage: handleIncomingMessage,
     onReadReceipt: handleReadReceipt,
     onFriendEvent: handleFriendEvent,
-    onConnectionChange: connected => { chatConnected.value = connected },
     onReconnect: handleChatReconnect
   })
+  await chatNotificationStore.initialize()
   await Promise.all([loadFriends(), loadReceivedRequests()])
 })
 onBeforeUnmount(() => {
   messageTimeouts.forEach(timeout => window.clearTimeout(timeout))
   messageTimeouts.clear()
-  disconnectChatSocket()
+  unsubscribeChatEvents?.()
+  unsubscribeChatEvents = null
 })
 </script>
 

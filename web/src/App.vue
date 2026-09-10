@@ -23,14 +23,30 @@
 </template>
 
 <script setup>
+import { watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Sidebar from "@/components/Sidebar/Sidebar.vue"
 import Header from "@/components/Header/Header.vue"
 import { useProfileStore } from '@/stores/profile'
+import { getAccessToken } from '@/api/httpClient'
+import { useChatNotificationStore } from '@/stores/chatNotifications'
 
 const route = useRoute()
 const profileStore = useProfileStore()
+const chatNotificationStore = useChatNotificationStore()
 const retryBackend = () => profileStore.fetchProfileData()
+
+watch(
+  () => route.fullPath,
+  async () => {
+    if (route.meta.layout === 'blank' || !getAccessToken()) {
+      await chatNotificationStore.stop()
+      return
+    }
+    await chatNotificationStore.initialize()
+  },
+  { immediate: true }
+)
 </script>
 
 <style lang="scss">
