@@ -517,6 +517,19 @@ location /ws/ {
 - 消息是否成功保存到 MySQL；
 - 两个用户是否确实为好友。
 
+排查顺序推荐（本项目真实踩过的两个坑）：
+
+1. 打开 `--logging.level.org.springframework.messaging=TRACE`；
+2. 看不到 `Translated /user/queue/xxx -> [/queue/xxx-user{sessionId}]` → 订阅没进对通道；
+3. 看到 `No active sessions for user destination: /user/<用户名>/...` → 会话没有绑定用户，检查
+   `WebSocketJwtChannelInterceptor` 是否用了 `MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class)`
+   （用 `StompHeaderAccessor.wrap(message)` 拿到的是副本，`setUser` 会丢）；
+4. 有 `Translated` 但对方仍收不到 → 检查 `enableSimpleBroker(...)` 是否包含 `/queue`
+   （写成 `/user` 时，翻译后的 `/queue/xxx-user{sessionId}` 会被代理静默丢弃）。
+
+> 完整案例、源码依据与端到端验证过程见
+> [`chat-realtime-websocket-troubleshooting.md`](./chat-realtime-websocket-troubleshooting.md)。
+
 ### 13.3 消息重复
 
 - 前端是否建立了多个连接或重复订阅；

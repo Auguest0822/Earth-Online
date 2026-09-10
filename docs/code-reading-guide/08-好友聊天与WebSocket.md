@@ -103,3 +103,11 @@ heartbeatOutgoing: 10000
 
 **怎样防止给陌生人发消息？** Service 基于数据库中已接受的好友关系判断，而不是相信前端选择状态。
 
+## 排障记录
+
+私人队列推送曾经整体失效（表现为“聊天要刷新页面才能看到新消息、提示音不响”），两个根因分别在
+`WebSocketConfig` 的代理前缀与 `WebSocketJwtChannelInterceptor` 的用户绑定。
+完整的排查过程、Spring 源码依据、修复代码与端到端验证见
+[`../chat-realtime-websocket-troubleshooting.md`](../chat-realtime-websocket-troubleshooting.md)。
+
+
