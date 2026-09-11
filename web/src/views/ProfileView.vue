@@ -71,7 +71,7 @@
         <div class="module-title">
           <div><el-icon><Clock /></el-icon><h2>我的最近时光</h2></div>
         </div>
-        <div class="timeline-list">
+        <div v-if="recentRecords.length" class="timeline-list">
           <article v-for="item in recentRecords" :key="item.id" class="timeline-item">
             <div class="timeline-date">
               <strong>{{ formatDay(item.date) }}</strong>
@@ -88,7 +88,14 @@
             </div>
           </article>
         </div>
-        <button class="text-link full-link" @click="router.push('/timeline')">查看全部记录 →</button>
+        <div v-else class="home-recent-empty">
+          <div class="home-recent-empty__orbit" aria-hidden="true"><span>✦</span><i></i><b></b></div>
+          <p class="home-recent-empty__eyebrow">等待第一段轨迹</p>
+          <h3>你的最近时光还是空白的</h3>
+          <p>记录今天的心情、想法或一件小事，
+            <br />让它成为你在地球上的第一段轨迹。</p>
+        </div>
+        <button v-if="recentRecords.length" class="text-link full-link" @click="router.push('/timeline')">查看全部记录 →</button>
       </section>
 
       <aside class="side-stack">
@@ -283,6 +290,7 @@ onBeforeUnmount(() => selectedPhotos.value.forEach(releasePhoto))
 .timeline-item > i { position: relative; width: 2px; height: 100%; background: rgba(102,194,138,.2); }.timeline-item > i::before { content:''; position:absolute; left:-3px; width:8px; height:8px; border-radius:50%; background:$primary-color; }
 .timeline-content { padding: 0 0 12px; }.record-mood { color: #3f9b68; font-size: 12px; }.timeline-content p { display:-webkit-box; overflow:hidden; margin:6px 0; color:$text-regular; font-size:13px; line-height:1.55; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
 .record-bottom { display:flex; justify-content:space-between; align-items:center; gap:10px; }.record-bottom span { margin-right:6px; color:#4fa875; background:#edf8f1; padding:3px 7px; border-radius:999px; font-size:10px; }.record-bottom img { width:72px; height:42px; object-fit:cover; border-radius:6px; }
+.home-recent-empty { display:flex; min-height:286px; padding:10px 16px 18px; align-items:center; flex-direction:column; justify-content:center; text-align:center; }.home-recent-empty__orbit { position:relative; width:82px; height:82px; margin-bottom:12px; border:2px dashed rgba(102,194,138,.4); border-radius:50%; }.home-recent-empty__orbit span { position:absolute; inset:20px; display:grid; place-items:center; border-radius:50%; color:#57ae77; background:rgba(102,194,138,.18); font-size:20px; }.home-recent-empty__orbit i,.home-recent-empty__orbit b { position:absolute; border-radius:50%; }.home-recent-empty__orbit i { top:7px; right:8px; width:12px; height:12px; background:$primary-color; box-shadow:0 0 0 4px #fff; }.home-recent-empty__orbit b { right:13px; bottom:14px; width:7px; height:7px; background:#f1c879; }.home-recent-empty__eyebrow { margin:0 0 6px; color:$primary-color; font-size:11px; font-weight:700; letter-spacing:1px; }.home-recent-empty h3 { margin:0; color:$text-main; font-size:18px; }.home-recent-empty > p:not(.home-recent-empty__eyebrow) { margin:9px 0 14px; color:$text-secondary; font-size:13px; line-height:1.65; }
 .text-link { border:0; color:#43a36b; background:transparent; cursor:pointer; }.full-link { width:100%; padding:10px; background:rgba(102,194,138,.07); border-radius:8px; }
 .letter-preview { display:flex; align-items:center; gap:14px; }.envelope { display:grid; place-items:center; width:88px; height:62px; border-radius:10px; background:#fff5e7; font-size:28px; }
 .letter-preview > div:nth-child(2) { flex:1; }.letter-preview strong,.letter-preview span { display:block; }.letter-preview span { margin-top:4px; color:$text-secondary; font-size:11px; }.letter-preview b { display:block; margin-top:5px; color:#43a36b; font-size:23px; }.letter-preview b small { font-size:11px; font-weight:400; }

@@ -46,7 +46,7 @@
           <el-input id="register-user" v-model="registerForm.username" name="username" autocomplete="username"
             maxlength="20" placeholder="3–20 位中文、字母、数字或下划线" size="large"><template #prefix><el-icon><User /></el-icon></template></el-input>
           <FieldLabel for-id="register-email" text="邮箱" />
-          <el-input id="register-email" v-model="registerForm.email" name="email" autocomplete="email" type="email"
+          <el-input id="register-email" v-model="registerForm.email" name="email" autocomplete="email" type="text" inputmode="email"
             maxlength="20" placeholder="输入常用邮箱（最多 20 位）" size="large"><template #prefix><el-icon><Message /></el-icon></template></el-input>
           <div class="password-grid">
             <div><FieldLabel for-id="register-password" text="密码" />
@@ -137,7 +137,7 @@ const handleRegister = async () => {
   const password = registerForm.password
   if (!username || !email || !password) { ElMessage.warning('请填写完整信息'); return }
   if (!/^[\p{L}\p{N}_]{3,20}$/u.test(username)) { ElMessage.warning('用户名需为 3–20 位中文、字母、数字或下划线'); return }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 20) { ElMessage.warning('请输入有效且不超过 20 位的邮箱地址'); return }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 20) { ElMessage.warning('邮箱格式错误'); return }
   if (password.length < 8 || password.length > 20 || !/[\p{L}]/u.test(password) || !/\d/.test(password)) { ElMessage.warning('密码需为 8–20 位，且同时包含字母和数字'); return }
   if (registerForm.password !== registerForm.confirmPassword) { ElMessage.warning('两次密码输入不一致'); return }
   submitting.value = true

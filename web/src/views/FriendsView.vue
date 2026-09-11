@@ -39,7 +39,7 @@
         </el-button>
       </section>
 
-      <section v-if="receivedRequests.length || loadingReceived" class="received-requests" aria-label="收到的好友申请">
+      <section v-if="receivedRequests.length" class="received-requests" aria-label="收到的好友申请">
         <div class="received-requests__header"><strong>收到的好友申请</strong><span>{{ receivedRequests.length }}</span></div>
         <article v-for="request in receivedRequests" :key="request.id" class="received-request">
           <Avatar :user="request.user" />

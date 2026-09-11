@@ -8,11 +8,11 @@
         <div class="identity-text">
           <span class="eyebrow">My Earth Archive</span>
         <h2>{{ profileStore.userInfo.username || '地球居民' }}</h2>
-          <p>{{ profileStore.userInfo.slogan }}</p>
+          <p v-if="profileStore.userInfo.slogan?.trim()">{{ profileStore.userInfo.slogan }}</p>
           <div class="identity-tags">
             <span v-if="profileStore.userInfo.publicId">地球 ID · {{ profileStore.userInfo.publicId }}</span>
-            <span>{{ displayInfo.survivalDuration }}</span>
-            <span>{{ profileStore.userInfo.birthDate }}</span>
+            <span v-if="displayInfo.survivalDuration">{{ displayInfo.survivalDuration }}</span>
+            <span v-if="profileStore.userInfo.birthDate">{{ profileStore.userInfo.birthDate }}</span>
           </div>
         </div>
       </div>

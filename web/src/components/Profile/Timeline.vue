@@ -144,12 +144,10 @@
       <el-pagination
         background
         :current-page="currentPage"
-        :page-size="pageSize"
-        :page-sizes="[10, 20]"
+        :page-size="PAGE_SIZE"
         :total="profileStore.timelinePagination.total"
-        layout="total, sizes, prev, pager, next"
+        layout="total, prev, pager, next"
         @current-change="changePage"
-        @size-change="changePageSize"
       />
     </div>
 
@@ -269,7 +267,7 @@ const selectedYear = ref('all')
 const selectedTag = ref('')
 const selectedEventType = ref('')
 const currentPage = ref(1)
-const pageSize = ref(10)
+const PAGE_SIZE = 10
 const photoInput = ref(null)
 const detailVisible = ref(false)
 const selectedItem = ref(null)
@@ -329,7 +327,7 @@ const loadTimelinePage = async () => {
   try {
     await profileStore.fetchTimelinePage({
       page: currentPage.value,
-      pageSize: pageSize.value,
+      pageSize: PAGE_SIZE,
       year: selectedYear.value === 'all' ? '' : selectedYear.value,
       tag: selectedTag.value,
       eventType: selectedEventType.value
@@ -339,7 +337,7 @@ const loadTimelinePage = async () => {
   }
 }
 
-const replaceFilterQuery = (page = 1, size = pageSize.value) => {
+const replaceFilterQuery = (page = 1) => {
   const query = { ...route.query }
   delete query.record
   if (selectedYear.value === 'all') delete query.year
@@ -350,8 +348,7 @@ const replaceFilterQuery = (page = 1, size = pageSize.value) => {
   else delete query.eventType
   if (page > 1) query.page = String(page)
   else delete query.page
-  if (size !== 10) query.pageSize = String(size)
-  else delete query.pageSize
+  delete query.pageSize
   return router.replace({ query })
 }
 
@@ -363,7 +360,6 @@ const clearFilters = () => {
   return replaceFilterQuery(1)
 }
 const changePage = (page) => replaceFilterQuery(page)
-const changePageSize = (size) => replaceFilterQuery(1, size)
 
 watch(
   () => route.query,
@@ -372,8 +368,6 @@ watch(
     selectedTag.value = typeof query.tag === 'string' ? query.tag : ''
     selectedEventType.value = typeof query.eventType === 'string' ? query.eventType : ''
     currentPage.value = parsePositiveInteger(query.page, 1)
-    const requestedPageSize = parsePositiveInteger(query.pageSize, 10)
-    pageSize.value = [10, 20].includes(requestedPageSize) ? requestedPageSize : 10
     await loadTimelinePage()
   },
   { immediate: true }

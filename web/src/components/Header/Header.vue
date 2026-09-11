@@ -70,7 +70,7 @@ let searchController = null
 
 const displayName = computed(() => {
   const nickname = profileStore.userInfo?.username || profileStore.userInfo?.nickname || '地球居民'
-  return Array.from(nickname).slice(0, 10).join('')
+  return Array.from(nickname).slice(0, 20).join('')
 })
 
 const handleCommand = (command) => {
@@ -196,7 +196,7 @@ onBeforeUnmount(() => {
     .user-info {
       display: flex;
       align-items: center;
-      max-width: 180px;
+      max-width: 240px;
       min-width: 0;
 
       .user-line {
@@ -229,13 +229,14 @@ onBeforeUnmount(() => {
   .header-right { gap: 14px; }
   .header-right .search-box { flex: 1; width: auto; max-width: 340px; }
   .header-right .user-profile { gap: 7px; }
-  .header-right .user-profile .user-info { max-width: 96px; }
+  .header-right .user-profile .user-info { max-width: 180px; }
 }
 
 @media (max-width: 640px) {
   .header { height: 60px; padding: 0 12px; }
-  .header-right { justify-content: flex-end; gap: 8px; }
-  .header-right .search-box { display: none; }
+  .header-right { justify-content: flex-start; gap: 8px; }
+  .header-right .search-box { display: block; flex: 1; order: 1; width: auto; min-width: 0; max-width: none; }
+  .header-right .user-profile { flex: 0 0 auto; order: 2; }
   .header-right .user-profile .user-info,
   .header-right .user-profile > .el-icon { display: none; }
   .header-right .user-profile .avatar { width: 32px; height: 32px; }

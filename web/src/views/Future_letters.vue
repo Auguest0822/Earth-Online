@@ -41,8 +41,10 @@
             class="letter-input"
             type="textarea"
             :autosize="{ minRows: 9, maxRows: 12 }"
+            maxlength="2000"
             placeholder="此刻的你想对未来说些什么？"
           />
+          <span class="letter-count">{{ form.content.length }}/2000</span>
         </div>
 
         <div class="mood-area">
@@ -691,7 +693,7 @@ onMounted(async () => {
 
 .paper {
   position: relative;
-  padding: 24px 26px 26px 42px;
+  padding: 24px 26px 52px 42px;
   background:
     linear-gradient(90deg, rgba(102, 194, 138, 0.26) 1px, transparent 1px) 28px 0 / 1px 100% no-repeat,
     repeating-linear-gradient(transparent 0 43px, rgba(140, 118, 78, 0.1) 44px),
@@ -766,6 +768,16 @@ onMounted(async () => {
       color: rgba(102, 102, 102, 0.46);
     }
   }
+}
+
+.letter-count {
+  position: absolute;
+  z-index: 1;
+  right: 16px;
+  bottom: 13px;
+  color: $text-secondary;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .mood-area,
