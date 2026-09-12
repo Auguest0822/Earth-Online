@@ -407,6 +407,7 @@ const loadMessages = async (friend, { silent = false } = {}) => {
   if (!silent) loadingMessages.value = true
   const friendPublicId = friend.publicId
   const shouldStickToBottom = !silent || isNearMessagesBottom()
+  let shouldScrollToBottom = false
   try {
     const result = await listChatMessages(friend.publicId)
     // Prevent a slower request for a previously selected friend from replacing
@@ -420,7 +421,7 @@ const loadMessages = async (friend, { silent = false } = {}) => {
       const nextMessages = [...serverMessages, ...localPending]
       if (!isSameMessageList(messages.value, nextMessages)) {
         messages.value = nextMessages
-        if (shouldStickToBottom) await scrollMessagesToBottom()
+        shouldScrollToBottom = shouldStickToBottom
       }
     }
   } catch (error) {
@@ -430,7 +431,11 @@ const loadMessages = async (friend, { silent = false } = {}) => {
     }
     ElMessage.error(error.message || '聊天记录加载失败')
   } finally {
+    // 先关掉 loading，让消息列表真正渲染出来，再滚到底。
+    // 之前是在 loading 期间就滚（那时 DOM 还是"正在加载…"占位块），等于没滚，
+    // 表现为打开会话停在最早的消息、看不到最新几条。
     if (!silent) loadingMessages.value = false
+    if (shouldScrollToBottom) await scrollMessagesToBottom()
   }
 }
 
@@ -641,6 +646,12 @@ const handleFriendEvent = async event => {
     return
   }
   if (event.type === 'ACCEPTED') {
+    // 对方通过申请后，搜索结果卡片要立刻变成“已是好友”并允许聊天；
+    // 否则卡片会一直停在“等待确认”，必须刷新页面才会更新。
+    if (searchResult.value?.publicId === event.friendPublicId) {
+      searchResult.value = { ...searchResult.value, relationStatus: 'FRIENDS' }
+      searchMessage.value = '对方已接受好友申请，可以开始聊天了'
+    }
     await loadFriends()
     ElMessage.success('好友申请已通过')
   }
@@ -763,11 +774,15 @@ h2 { margin-bottom:5px; color:$text-main; font-size:24px; }
 .chat-user { display:flex; align-items:center; gap:12px; }
 .chat-user h3 { margin-bottom:4px; color:$text-main; font-size:17px; }
 .chat-user p { margin:0; color:$text-secondary; font-size:12px; }
-.chat-content { display:flex; flex:1; min-height:260px; overflow-y:auto; padding:26px; background:linear-gradient(180deg,rgba(247,252,247,.72),#fff 35%); }
+/* 消息超过一屏时必须能在内部滚动。
+   注意不能用 align-self:flex-end 来贴底：那样消息列表会向上溢出，
+   而 scrollHeight 不包含上方溢出部分，较早的历史消息会永久看不到（表现为“被吞掉”）。
+   正确做法是容器竖向排列 + 列表 margin-top:auto：内容少时贴底，内容多时从顶部正常滚动。 */
+.chat-content { display:flex; flex-direction:column; flex:1; min-height:260px; overflow-y:auto; padding:26px; background:linear-gradient(180deg,rgba(247,252,247,.72),#fff 35%); }
 .chat-tip { position:absolute; align-self:start; padding:7px 12px; border-radius:999px; color:$text-secondary; background:rgba(102,194,138,.12); font-size:12px; }
 .chat-placeholder { display:grid; width:100%; align-self:center; place-items:center; color:$text-secondary; text-align:center; }
 .chat-placeholder .el-icon { color:$primary-color; font-size:44px; }
-.message-list { display:flex; width:100%; align-self:flex-end; flex-direction:column; gap:12px; }
+.message-list { display:flex; width:100%; flex-direction:column; gap:12px; margin-top:auto; }
 .message-row { display:flex; max-width:76%; align-items:flex-end; gap:8px; }.message-row.mine { align-self:flex-end; flex-direction:row-reverse; }
 .message-body { display:flex; min-width:0; flex-direction:column; align-items:flex-start; }.message-row.mine .message-body { align-items:flex-end; }
 .message-bubble { padding:10px 13px; border-radius:14px 14px 14px 3px; color:$text-main; background:#fff; box-shadow:0 2px 10px rgba(62,126,85,.08); }.message-row.mine .message-bubble { border-radius:14px 14px 3px 14px; color:#fff; background:$primary-color; }
@@ -791,5 +806,16 @@ h2 { margin-bottom:5px; color:$text-main; font-size:24px; }
 .chat-empty .el-icon { margin-bottom:12px; color:$primary-color; font-size:56px; }
 .chat-empty h3 { margin-bottom:8px; color:$text-main; }
 .chat-empty p { max-width:300px; margin-bottom:0; line-height:1.7; }
-@media (max-width:760px) { .friends-view { grid-template-columns:1fr; height:auto; min-height:auto; overflow:visible; }.friend-sidebar { max-height:440px; border-right:0; border-bottom:1px solid rgba(102,194,138,.16); }.chat-panel { min-height:520px; } }
+@media (max-width:760px) {
+  /* 手机竖屏：好友列表在上、聊天框在下 */
+  .friends-view { grid-template-columns:1fr; height:auto; min-height:auto; overflow:visible; row-gap:12px; }
+  .friend-sidebar { max-height:none; border-right:0; border-bottom:1px solid rgba(102,194,138,.16); }
+
+  /* 好友列表最多显示约 3 个好友的高度，好友更多时在列表内部滚动 */
+  .friend-list { flex:none; max-height:226px; }
+
+  /* 聊天区给出确定高度，消息在内部滚动：历史记录不会被顶掉，也不会把页面越撑越长 */
+  .chat-panel { height:clamp(360px, 62vh, 560px); min-height:0; }
+  .chat-content { min-height:0; }
+}
 </style>

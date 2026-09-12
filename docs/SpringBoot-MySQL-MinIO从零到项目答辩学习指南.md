@@ -1059,6 +1059,14 @@ public List<ChatMessageResponse> getConversation(...) {
 
 它表达该方法只查询，可以帮助框架进行语义和性能优化，但不能把它当作数据库权限隔离的唯一安全机制。
 
+> **真实案例（建议必看）**：项目里曾经因为事记删除的 Service 方法漏写 `@Transactional`，
+> 导致「删除接口返回 500、但记录没被删掉」，而同一模块的新增/修改却完全正常——
+> 原因是 `save()` 属于 `SimpleJpaRepository` 自带 `@Transactional` 的方法，
+> 而自己在 Repository 接口里声明的**派生删除方法**（`deleteByXxx`）不带事务，
+> 它的 `em.remove()` 不会 flush，最后在关闭 EntityManager 时抛 `TransactionRequiredException`。
+> 完整排查过程、日志证据、修复与验收方式见
+> [`后端删除接口500与事务边界排障记录.md`](./后端删除接口500与事务边界排障记录.md)。
+
 ## 10.4 回滚
 
 Spring 默认对未检查异常回滚。项目的 `ResponseStatusException` 属于运行时异常，通常会触发回滚。

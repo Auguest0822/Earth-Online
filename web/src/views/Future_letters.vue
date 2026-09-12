@@ -130,6 +130,8 @@
             <button
               v-for="preset in datePresets"
               :key="preset.label"
+              type="button"
+              :class="{ active: activePresetDays === preset.days }"
               @click="applyPreset(preset.days)"
             >
               {{ preset.label }}
@@ -335,6 +337,15 @@ const moodSummary = computed(() => {
 })
 const openHint = computed(() => {
   return form.openAt ? `将在 ${form.openAt} 开启` : '选择一个未来日期'
+})
+
+// 当前「开启日期」如果正好等于某个快捷选项算出来的日期，就高亮那个按钮；
+// 手动挑的日期不在三个选项里时（activePresetDays = null）三个按钮都不高亮。
+const activePresetDays = computed(() => {
+  const current = form.openAt
+  if (!current) return null
+  const matched = datePresets.find(preset => getFutureDate(preset.days) === current)
+  return matched ? matched.days : null
 })
 
 const applyPreset = (days) => {
@@ -924,12 +935,28 @@ onMounted(async () => {
     background: #f6f8f5;
     border: 1px solid transparent;
     border-radius: 8px;
+    cursor: pointer;
     transition: all 0.2s ease;
 
     &:hover {
       color: var(--capsule-green-dark);
       background: var(--capsule-mint);
       border-color: rgba(102, 194, 138, 0.22);
+    }
+
+    // 当前开启日期正好命中该快捷选项时高亮（放在 :hover 之后，悬停时也保持高亮）
+    &.active {
+      color: #fff;
+      background: $primary-color;
+      border-color: $primary-color;
+      box-shadow: 0 4px 12px rgba(102, 194, 138, 0.28);
+      font-weight: 600;
+
+      &:hover {
+        color: #fff;
+        background: $primary-color;
+        border-color: $primary-color;
+      }
     }
   }
 }

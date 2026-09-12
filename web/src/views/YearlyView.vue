@@ -8,7 +8,7 @@
       </div>
       <div class="year-selector">
         <el-icon><Calendar /></el-icon>
-        <el-select v-model="selectedYear" size="small">
+        <el-select v-model="selectedYear" size="small" placeholder="选择年份" class="year-select">
           <el-option label="全部年份" value="all" />
           <el-option v-for="year in yearOptions" :key="year" :label="`${year} 年`" :value="String(year)" />
         </el-select>
@@ -104,7 +104,6 @@
               <h4>问问你的 {{ selectedYear === 'all' ? '这一年' : selectedYear + ' 年' }}</h4>
               <p>{{ selectedYear === 'all' ? '请先选择具体年份再开始回忆。' : `AI 只会检索你在 ${selectedYear} 年的记录，并附上回答依据。` }}</p>
             </div>
-            <span class="rag-badge">RAG 检索增强</span>
           </div>
 
           <div class="question-box">
@@ -329,6 +328,11 @@ onMounted(async () => {
   align-items: center;
   gap: 10px;
   color: $primary-color;
+
+  // Element Plus 的选中文字（.el-select__placeholder）是绝对定位、不参与宽度计算，
+  // 不给下拉框显式宽度时它会塌缩成"只剩箭头"的窄框，年份文字被 overflow:hidden 裁掉。
+  // 这里按项目其它筛选框的约定给出固定宽度，保证"当前选择的年份"始终可见。
+  :deep(.el-select) { width: 128px; }
 }
 
 .stats-grid {
@@ -435,17 +439,6 @@ onMounted(async () => {
 
   h4 { margin: 0; color: $text-main; font-size: 18px; }
   p { margin: 7px 0 0; color: $text-regular; font-size: 14px; }
-}
-
-.rag-badge {
-  flex: 0 0 auto;
-  padding: 6px 10px;
-  border: 1px solid rgba(102, 194, 138, .28);
-  border-radius: 999px;
-  background: #f1faf3;
-  color: $primary-color;
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .question-box {
