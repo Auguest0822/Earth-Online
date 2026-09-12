@@ -8,6 +8,7 @@ import com.earthonline.backend.user.UserEntity;
 import com.earthonline.backend.user.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
@@ -15,7 +16,17 @@ import java.time.LocalDate;
 import java.util.List;
 import org.springframework.data.domain.PageRequest;
 
+/**
+ * 事记的增删改查。
+ *
+ * 注意：整个类必须有事务边界。`save()` 是 Spring Data 自带 @Transactional 的方法，
+ * 所以即使没有类级事务也能工作；但**派生删除方法（如 deleteByIdAndUserId）不自带事务**，
+ * 它只是把实体查出来执行 em.remove()，没有事务时不会 flush，
+ * 等到 OpenEntityManagerInView 关闭 EntityManager 时才抛 TransactionRequiredException，
+ * 表现就是“删除接口 500，而且记录没删掉”。所以写操作统一加 @Transactional。
+ */
 @Service
+@Transactional(readOnly = true)
 public class RecordService {
 
     private final RecordRepository recordRepository;
@@ -88,6 +99,7 @@ public class RecordService {
                 .toList();
     }
 
+    @Transactional
     public RecordResponse create(
             String username,
             CreateRecordRequest request
@@ -119,6 +131,7 @@ public class RecordService {
         return toResponse(entity, username);
     }
 
+    @Transactional
     public RecordResponse update(
             String username,
             Long id,
@@ -141,6 +154,7 @@ public class RecordService {
         return toResponse(recordRepository.save(entity), username);
     }
 
+    @Transactional
     public void delete(String username, Long id) {
         Long userId = requireUserId(username);
 
@@ -148,6 +162,8 @@ public class RecordService {
             throw recordNotFound();
         }
 
+        // 派生删除会先查出实体再 em.remove()：keywords/photos 是 @ElementCollection，
+        // Hibernate 会先删 record_keywords / record_photos 再删 records，外键约束不会报错。
         recordRepository.deleteByIdAndUserId(id, userId);
     }
 

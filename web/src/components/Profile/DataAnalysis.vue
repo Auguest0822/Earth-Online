@@ -13,7 +13,7 @@
     </nav>
 
     <div class="charts-container">
-      <div v-show="activeTab === 'events'" class="chart-box">
+      <div v-show="activeTab === 'events'" ref="chartBoxRef" class="chart-box">
         <h4 class="chart-title">事件类型分布</h4>
         <div v-if="hasEvents" ref="pieChartRef" class="chart-content"></div>
         <div v-else class="chart-empty-state">
@@ -53,19 +53,89 @@ const props = defineProps({
 const emit = defineEmits(['create-record'])
 
 const pieChartRef = ref(null)
+const chartBoxRef = ref(null)
 const activeTab = ref('events')
+const isNarrow = ref(false)
 const hasEvents = computed(() => props.eventsData.length > 0)
 const tabs = [
   { key: 'events', label: '事件类型分布' },
   { key: 'keywords', label: '关键词云' }
 ]
 
-let pieChart = null
+// 数据里的 value 是“次数”，不是百分比；图例和中心文案自己算占比，避免出现“1%”这种误导。
+const sortedEvents = computed(() => [...props.eventsData]
+  .map(item => ({ name: String(item?.name || '').trim(), value: Number(item?.value) || 0 }))
+  .filter(item => item.name)
+  .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name, 'zh-CN')))
 
-const selectTab = async (tab) => {
-  activeTab.value = tab
-  await nextTick()
-  if (tab === 'events') pieChart?.resize()
+let pieChart = null
+let chartResizeObserver = null
+
+const truncateLabel = (text, max = 4) => (text.length > max ? `${text.slice(0, max)}…` : text)
+
+const buildChartOption = () => {
+  const narrow = isNarrow.value
+  const data = sortedEvents.value
+  const total = data.reduce((sum, item) => sum + item.value, 0) || 1
+  const top = data[0]
+  // 窄屏：饼图居中、图例放到下方；宽屏：保持原来的左图右例布局
+  const center = narrow ? ['50%', '40%'] : ['30%', '50%']
+  const legendFormatter = name => {
+    const item = data.find(candidate => candidate.name === name)
+    return item ? `${name} ${Math.round((item.value / total) * 100)}%` : name
+  }
+
+  return {
+    tooltip: { trigger: 'item', formatter: params => `${params.name}：${params.value} 条（${params.percent}%）` },
+    color: ['#66C28A', '#9ED8B3', '#FFB87A', '#F78E8E', '#A0C6FF'],
+    title: top
+      ? {
+        text: truncateLabel(top.name),
+        subtext: `${Math.round((top.value / total) * 100)}%`,
+        left: center[0],
+        top: center[1],
+        textAlign: 'center',
+        textVerticalAlign: 'middle',
+        textStyle: { color: '#2d4638', fontSize: narrow ? 13 : 15, fontWeight: 700 },
+        subtextStyle: { color: '#56906d', fontSize: narrow ? 11 : 12 }
+      }
+      : undefined,
+    legend: narrow
+      ? {
+        orient: 'horizontal',
+        left: 'center',
+        bottom: 0,
+        icon: 'circle',
+        itemWidth: 9,
+        itemHeight: 9,
+        itemGap: 12,
+        textStyle: { color: '#4b5f53', fontSize: 12 },
+        formatter: legendFormatter
+      }
+      : {
+        orient: 'vertical',
+        right: '8%',
+        top: 'middle',
+        icon: 'circle',
+        itemWidth: 10,
+        itemHeight: 10,
+        itemGap: 12,
+        textStyle: { color: '#4b5f53', fontSize: 13 },
+        formatter: legendFormatter
+      },
+    series: [
+      {
+        type: 'pie',
+        radius: narrow ? ['38%', '58%'] : ['45%', '70%'],
+        center,
+        avoidLabelOverlap: false,
+        label: { show: false },
+        labelLine: { show: false },
+        itemStyle: { borderColor: '#fafafa', borderWidth: 2 },
+        data
+      }
+    ]
+  }
 }
 
 const initCharts = () => {
@@ -74,53 +144,56 @@ const initCharts = () => {
 
   if (pieChartRef.value && hasEvents.value) {
     pieChart = echarts.init(pieChartRef.value)
-    pieChart.setOption({
-      tooltip: { trigger: 'item' },
-      color: ['#66C28A', '#9ED8B3', '#FFB87A', '#F78E8E', '#A0C6FF'],
-      legend: {
-        orient: 'vertical',
-        right: '10%',
-        top: 'middle',
-        icon: 'circle',
-        itemWidth: 10,
-        itemHeight: 10,
-        formatter: (name) => {
-          let item = props.eventsData.find(i => i.name === name)
-          return `${name} ${item.value}%`
-        }
-      },
-      series: [
-        {
-          type: 'pie',
-          radius: ['45%', '70%'],
-          center: ['30%', '50%'],
-          avoidLabelOverlap: false,
-          label: { show: false },
-          labelLine: { show: false },
-          data: props.eventsData
-        }
-      ]
-    })
+    pieChart.setOption(buildChartOption())
   }
-
 }
 
-const resizeChart = () => pieChart?.resize()
+const measureWidth = () => chartBoxRef.value?.clientWidth || 0
+
+// 返回 true 表示“宽窄格局变了”，需要重建 option
+const applyNarrow = () => {
+  const width = measureWidth()
+  const narrow = width > 0 && width < 420
+  if (narrow === isNarrow.value) return false
+  isNarrow.value = narrow
+  return true
+}
+
+const resizeChart = () => {
+  if (applyNarrow()) initCharts()
+  else pieChart?.resize()
+}
+
+const selectTab = async (tab) => {
+  activeTab.value = tab
+  await nextTick()
+  if (tab === 'events') resizeChart()
+}
 
 onMounted(() => {
+  const width = measureWidth()
+  isNarrow.value = width > 0 && width < 420
+
   nextTick(() => {
     initCharts()
+    if (chartBoxRef.value && typeof ResizeObserver !== 'undefined') {
+      chartResizeObserver = new ResizeObserver(resizeChart)
+      chartResizeObserver.observe(chartBoxRef.value)
+    }
   })
   window.addEventListener('resize', resizeChart)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resizeChart)
+  chartResizeObserver?.disconnect()
+  chartResizeObserver = null
   pieChart?.dispose()
 })
 
 watch(() => props.eventsData, () => {
   nextTick(() => {
+    applyNarrow()
     initCharts()
   })
 }, { deep: true })
@@ -258,9 +331,21 @@ watch(() => props.eventsData, () => {
     button { padding: 8px 12px; font-size: 13px; }
   }
 
-  .chart-box .chart-title {
-    align-items: flex-start;
-    flex-direction: column;
+  .chart-box {
+    min-height: 300px;
+    padding: 14px 12px 16px;
+
+    .chart-title {
+      align-items: flex-start;
+      flex-direction: column;
+      margin-bottom: 10px;
+      font-size: 15px;
+    }
+
+    /* 图例移到饼图下方后需要更多高度，否则会被挤在一起 */
+    .chart-content { height: 300px; }
+
+    .chart-empty-state { height: 270px; }
   }
 }
 </style>
