@@ -1,0 +1,13 @@
+# Docker 构建上下文瘦身：backend 镜像只 COPY backend/target 下的 jar，
+# 不需要把 node_modules、前端产物、文档和数据目录传给 Docker，否则小内存 ECS 上构建会明显变慢。
+.git
+.idea
+.vscode
+docs
+output
+data
+node_modules
+web/node_modules
+web/dist
+deploy/.env
+*.log

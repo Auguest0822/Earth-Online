@@ -121,7 +121,7 @@
       </aside>
     </div>
 
-    <el-dialog v-model="tagDialogVisible" title="添加标签" width="360px">
+    <el-dialog v-model="tagDialogVisible" title="添加标签" width="min(88vw, 360px)">
       <el-input v-model="tagInput" maxlength="12" placeholder="例如：学习、生活、旅行" @keyup.enter="confirmTag" />
       <template #footer><el-button type="success" @click="confirmTag">添加</el-button></template>
     </el-dialog>

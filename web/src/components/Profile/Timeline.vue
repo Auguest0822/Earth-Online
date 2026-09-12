@@ -108,7 +108,7 @@
       </div>
     </div>
 
-    <el-dialog v-model="detailVisible" title="记录详情" width="760px" class="record-detail-dialog">
+    <el-dialog v-model="detailVisible" title="记录详情" width="min(92vw, 760px)" class="record-detail-dialog">
       <article v-if="selectedItem" class="record-detail">
         <header class="detail-header">
           <div>
@@ -135,7 +135,10 @@
             :initial-index="index"
             fit="cover"
             preview-teleported
-          />
+          >
+            <template #placeholder><span class="detail-photo-state">图片加载中…</span></template>
+            <template #error><span class="detail-photo-state">图片加载失败</span></template>
+          </el-image>
         </div>
       </article>
     </el-dialog>
@@ -831,6 +834,23 @@ const removePhoto = (index) => {
 .detail-photos--3 { grid-template-columns: 1.45fr 1fr; }
 .detail-photos--3 :deep(.el-image:first-child) { grid-row: span 2; }
 
+/* 手机拍照常有几 MB，加载期间显示明确提示，避免看起来像一块空白 */
+.detail-photo-state {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: $text-secondary;
+  background: rgba(102, 194, 138, .08);
+  font-size: 12px;
+}
+
+/* 记录详情可能包含多张照片，限制高度并允许内部滚动，避免弹窗超出屏幕 */
+:deep(.record-detail-dialog .el-dialog__body) {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
 .empty-state {
   display: flex;
   min-height: 370px;
@@ -1047,6 +1067,19 @@ const removePhoto = (index) => {
   }
 
   :deep(.record-dialog) { width: calc(100% - 24px) !important; }
+
+  /* 记录详情弹窗：手机上收紧内边距、缩小字号、照片改成两列并限制高度 */
+  :deep(.record-detail-dialog) { width: calc(100% - 24px) !important; }
+  :deep(.record-detail-dialog .el-dialog__header) { padding: 16px 16px 8px; }
+  :deep(.record-detail-dialog .el-dialog__body) { max-height: 66vh; padding: 0 16px 16px; }
+  .record-detail {
+    .detail-header { gap: 10px; padding-bottom: 12px; }
+    h4 { font-size: 18px; }
+    .detail-content { margin: 14px 0; font-size: 14px; line-height: 1.8; }
+    .detail-mood { font-size: 21px; }
+  }
+  .detail-photos { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .detail-photos--1 { grid-template-columns: minmax(0, 1fr); }
   .record-stage { padding: 18px 12px; background-position: 68% center; }
   .record-banner { min-height: 70px; padding: 2px 6px 14px; }
   .record-banner h4 { max-width: 230px; font-size: 17px; }

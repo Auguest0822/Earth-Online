@@ -49,13 +49,18 @@ services:
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
       MINIO_ENDPOINT: http://minio:9000
       MINIO_PUBLIC_URL: ${PUBLIC_ORIGIN}
-      CHAT_WEBSOCKET_ALLOWED_ORIGIN_PATTERNS: ${CHAT_WEBSOCKET_ALLOWED_ORIGIN_PATTERNS:-http://localhost:5173}
+      # 浏览器页面的 Origin 必须在白名单里，否则 WebSocket 握手直接 403，实时聊天不可用。
+      # 这里始终把 PUBLIC_ORIGIN 拼进来（不依赖 Compose 的嵌套默认值语法，兼容旧版本），
+      # 所以只要 PUBLIC_ORIGIN 填对了，聊天就一定能连上；需要额外来源再设这个变量。
+      CHAT_WEBSOCKET_ALLOWED_ORIGIN_PATTERNS: ${CHAT_WEBSOCKET_ALLOWED_ORIGIN_PATTERNS:-http://localhost:5173},${PUBLIC_ORIGIN}
+      # 容器里的 JVM 默认是 UTC，会让聊天和事记时间比北京时间早 8 小时。
+      TZ: Asia/Shanghai
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       DEEPSEEK_BASE_URL: https://api.deepseek.com
       DEEPSEEK_MODEL: deepseek-chat
-      JAVA_TOOL_OPTIONS: -Xms256m -Xmx768m -XX:+UseContainerSupport
+      JAVA_TOOL_OPTIONS: -Xms256m -Xmx768m -XX:+UseContainerSupport -Duser.timezone=Asia/Shanghai
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:

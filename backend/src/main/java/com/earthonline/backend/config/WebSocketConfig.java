@@ -1,6 +1,8 @@
 package com.earthonline.backend.config;
 
 import com.earthonline.backend.auth.WebSocketJwtChannelInterceptor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -8,6 +10,8 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+
+import java.util.Arrays;
 
 /**
  * WebSocket/STOMP 的基础入口。
@@ -24,6 +28,8 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
+    private static final Logger log = LoggerFactory.getLogger(WebSocketConfig.class);
+
     private final WebSocketJwtChannelInterceptor webSocketJwtChannelInterceptor;
     private final String[] allowedOriginPatterns;
 
@@ -32,7 +38,29 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             @Value("${chat.websocket.allowed-origin-patterns:http://localhost:5173,http://127.0.0.1:5173}") String allowedOriginPatterns
     ) {
         this.webSocketJwtChannelInterceptor = webSocketJwtChannelInterceptor;
-        this.allowedOriginPatterns = allowedOriginPatterns.split("\\s*,\\s*");
+        this.allowedOriginPatterns = resolveAllowedOriginPatterns(allowedOriginPatterns);
+        // 部署后可直接在日志里确认白名单，Origin 不匹配时握手会返回 403。
+        log.info("WebSocket /ws/chat 允许的浏览器 Origin: {}", String.join(", ", this.allowedOriginPatterns));
+    }
+
+    /**
+     * 解析 Origin 白名单，并做两件防御：
+     * 1. 丢弃空值（例如环境变量存在但是空字符串，会让所有来源都被拒绝，
+     *    表现为“页面能打开、历史消息正常、实时聊天和未读一直不更新”）；
+     * 2. 结果为空时回退到本地开发地址，避免误配置直接把聊天锁死。
+     */
+    private static String[] resolveAllowedOriginPatterns(String rawPatterns) {
+        String[] parsed = rawPatterns == null
+                ? new String[0]
+                : Arrays.stream(rawPatterns.split(","))
+                        .map(String::trim)
+                        .filter(pattern -> !pattern.isEmpty())
+                        .toArray(String[]::new);
+
+        if (parsed.length > 0) {
+            return parsed;
+        }
+        return new String[]{"http://localhost:5173", "http://127.0.0.1:5173"};
     }
 
     @Override

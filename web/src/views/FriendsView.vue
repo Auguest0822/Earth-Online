@@ -66,14 +66,15 @@
           <Avatar :user="friend" />
           <span class="friend-item__main">
             <span class="friend-item__top">
-              <strong>{{ friend.name }}</strong><time>{{ friend.time }}</time>
+              <span class="friend-item__name-row">
+                <strong>{{ friend.name }}</strong>
+                <span v-if="friend.unreadCount" class="friend-item__unread" :aria-label="`${friend.unreadCount} 条未读消息`">
+                  {{ friend.unreadCount > 99 ? '99+' : friend.unreadCount }}
+                </span>
+              </span>
+              <time>{{ friend.time }}</time>
             </span>
             <span class="friend-public-id">ID · {{ friend.publicId }}</span>
-            <span v-if="friend.unreadCount" class="friend-item__bottom">
-              <span v-if="friend.unreadCount" class="friend-item__unread" :aria-label="`${friend.unreadCount} 条未读消息`">
-                {{ friend.unreadCount > 99 ? '99+' : friend.unreadCount }}
-              </span>
-            </span>
           </span>
         </button>
         <div v-if="loadingFriends" class="friend-list__empty"><p>正在加载好友列表…</p></div>
@@ -133,7 +134,7 @@
 
         <footer class="chat-editor">
           <div class="editor-tools">
-            <button type="button" title="发送表情" :aria-expanded="stickerPickerVisible" @click="stickerPickerVisible = !stickerPickerVisible">☺</button>
+            <button type="button" class="sticker-trigger" title="发送表情" :aria-expanded="stickerPickerVisible" @click="stickerPickerVisible = !stickerPickerVisible">☺</button>
             <button type="button" title="发送图片" :disabled="uploadingImage" @click="chatImageInput?.click()">
               <el-icon><Picture /></el-icon>
             </button>
@@ -746,9 +747,12 @@ h2 { margin-bottom:5px; color:$text-main; font-size:24px; }
 .friend-avatar.large { flex-basis:46px; width:46px; height:46px; }
 .friend-item__main { min-width:0; flex:1; }
 .friend-item__top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+/* 未读气泡紧跟在用户名右侧；用户名过长时省略，气泡不被挤掉 */
+.friend-item__name-row { display:flex; min-width:0; align-items:center; gap:6px; }
+.friend-item__name-row strong { min-width:0; }
+.friend-item__top time { flex:0 0 auto; }
 .friend-item strong { overflow:hidden; color:$text-main; font-size:14px; text-overflow:ellipsis; white-space:nowrap; }
 .friend-item time,.friend-item__message { color:$text-secondary; font-size:12px; }
-.friend-item__bottom { display:flex; min-width:0; align-items:center; gap:8px; margin-top:5px; }
 .friend-item__message { display:block; min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .friend-item__unread { display:grid; min-width:19px; height:19px; flex:0 0 auto; padding:0 5px; place-items:center; border-radius:10px; color:#fff; background:#ef6b6b; font-size:10px; font-weight:700; line-height:1; }
 .friend-public-id { display:block; margin-top:3px; color:$text-secondary; font-size:11px; font-variant-numeric:tabular-nums; }
@@ -776,7 +780,10 @@ h2 { margin-bottom:5px; color:$text-main; font-size:24px; }
 .message-retry { margin-top:4px; padding:0; border:0; color:#e45b5b; background:transparent; font-size:10px; cursor:pointer; }
 .chat-editor { padding:12px 22px 16px; border-top:1px solid rgba(102,194,138,.14); }
 .editor-tools { display:flex; align-items:center; gap:16px; margin:0 0 9px 4px; color:$text-regular; font-size:20px; }
-.editor-tools button { display:grid; padding:0; border:0; color:inherit; background:transparent; font-size:20px; cursor:pointer; }.editor-tools button:disabled { opacity:.5; cursor:not-allowed; }.editor-tools > span { font-size:11px; }
+/* 两个工具按钮统一成同样大小的方框，图标与字符都在框内居中，便于对齐 */
+.editor-tools button { display:grid; width:26px; height:26px; padding:0; place-items:center; border:0; color:inherit; background:transparent; font-size:20px; line-height:1; cursor:pointer; }.editor-tools button:disabled { opacity:.5; cursor:not-allowed; }.editor-tools > span { font-size:11px; }
+/* 表情用的是文字字符 ☺，视觉高度只占 em 框的一部分；放大到与 1em 的图片 SVG 看起来一样大 */
+.editor-tools .sticker-trigger { font-size:26px; }
 .sticker-panel { display:flex; flex-wrap:wrap; gap:5px; max-width:290px; margin:-2px 0 10px 2px; padding:8px; border:1px solid rgba(102,194,138,.2); border-radius:12px; background:#fff; box-shadow:0 5px 14px rgba(62,126,85,.1); }.sticker-panel button { display:grid; width:36px; height:36px; padding:0; place-items:center; border:0; border-radius:8px; background:transparent; font-size:22px; cursor:pointer; }.sticker-panel button:hover { background:rgba(102,194,138,.14); }.sticker-panel button:disabled { opacity:.5; cursor:not-allowed; }
 .chat-editor :deep(.el-textarea__inner) { border-radius:12px; }
 .editor-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:10px; color:$text-secondary; font-size:12px; }

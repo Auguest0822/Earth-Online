@@ -37,3 +37,11 @@ npm run dev
 npm run build
 mvn -f backend/pom.xml -DskipTests package
 ```
+
+## 部署
+
+Docker Compose + Nginx 的部署文件在 `deploy/`，生产环境变量模板是 `deploy/production.env.example`。
+
+- 华为云服务器更新部署（打包、上传、重建容器、reload Nginx、验收清单）：[`docs/华为云服务器更新部署指南.md`](docs/华为云服务器更新部署指南.md)
+- 服务器开关机、EIP 释放与重新连接：[`docs/华为云服务器启停与重新连接指南.md`](docs/华为云服务器启停与重新连接指南.md)
+
