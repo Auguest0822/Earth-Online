@@ -74,8 +74,11 @@ public class FriendService {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "你们已经是好友");
             }
             existingRequest.resend();
+            FriendRequestEntity resentRequest = friendRequestRepository.save(existingRequest);
+            // 重新申请同样要实时通知对方，否则对方只能靠刷新才发现
+            pushFriendEvent(receiver, "REQUEST_RECEIVED", sender.getPublicId());
             return toRequestResponse(
-                    friendRequestRepository.save(existingRequest),
+                    resentRequest,
                     receiver,
                     FriendRelationStatus.PENDING_SENT
             );
@@ -98,6 +101,9 @@ public class FriendService {
         }
 
         FriendRequestEntity request = friendRequestRepository.save(new FriendRequestEntity(sender, receiver));
+        // 通过 WebSocket 把“收到新的好友申请”实时推给对方：
+        // 对方不需要刷新页面或切到朋友页，就能在任意页面看到提醒（侧边栏红点 + 提示音）。
+        pushFriendEvent(receiver, "REQUEST_RECEIVED", sender.getPublicId());
         return toRequestResponse(request, receiver, FriendRelationStatus.PENDING_SENT);
     }
 

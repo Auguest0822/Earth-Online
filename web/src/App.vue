@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <!-- 登录注册页：纯空白布局 -->
   <div v-if="route.meta.layout === 'blank'" class="blank-layout">
     <router-view />
@@ -19,6 +19,8 @@
         <router-view />
       </div>
     </div>
+    <!-- 到期的未来信件：登录后自动提醒，可当场阅读；读过之后当天不再提醒 -->
+    <FutureLetterReminder />
   </div>
 </template>
 
@@ -27,6 +29,7 @@ import { watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Sidebar from "@/components/Sidebar/Sidebar.vue"
 import Header from "@/components/Header/Header.vue"
+import FutureLetterReminder from '@/components/FutureLetterReminder.vue'
 import { useProfileStore } from '@/stores/profile'
 import { getAccessToken } from '@/api/httpClient'
 import { useChatNotificationStore } from '@/stores/chatNotifications'

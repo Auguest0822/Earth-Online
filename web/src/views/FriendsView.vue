@@ -309,6 +309,8 @@ const loadReceivedRequests = async () => {
   try {
     const result = await listReceivedFriendRequests()
     receivedRequests.value = Array.isArray(result) ? result : (result?.content || result?.items || result?.value || [])
+    // 侧边栏“朋友”红点与这里的列表保持一致（当作消息看待）
+    chatNotificationStore.setPendingFriendRequests(receivedRequests.value.length)
   } catch (error) {
     if (!isServiceUnavailableError(error)) ElMessage.error(error.message || '收到的好友申请加载失败')
   } finally {
@@ -321,6 +323,7 @@ const handleAcceptRequest = async request => {
   try {
     await acceptFriendRequest(request.id)
     receivedRequests.value = receivedRequests.value.filter(item => item.id !== request.id)
+    chatNotificationStore.setPendingFriendRequests(receivedRequests.value.length)
     await loadFriends()
     ElMessage.success('已成为好友')
   } catch (error) {
@@ -335,6 +338,7 @@ const handleRejectRequest = async request => {
   try {
     await rejectFriendRequest(request.id)
     receivedRequests.value = receivedRequests.value.filter(item => item.id !== request.id)
+    chatNotificationStore.setPendingFriendRequests(receivedRequests.value.length)
     ElMessage.success('已拒绝该好友申请')
   } catch (error) {
     ElMessage.error(error.message || '拒绝好友申请失败')
@@ -633,6 +637,13 @@ const handleChatReconnect = async () => {
 
 const handleFriendEvent = async event => {
   if (!event?.type || !event.friendPublicId) return
+  if (event.type === 'REQUEST_RECEIVED') {
+    // 对方刚发出好友申请：不用刷新页面/切路由，直接把申请卡片显示出来
+    await loadReceivedRequests()
+    const sender = receivedRequests.value.find(item => item.user?.publicId === event.friendPublicId)
+    ElMessage.info(sender ? `${sender.user.username} 请求加你为好友` : '收到新的好友申请')
+    return
+  }
   if (event.type === 'REMOVED') {
     removeFriendFromPage(event.friendPublicId)
     ElMessage.info('一位好友已解除与你的好友关系')

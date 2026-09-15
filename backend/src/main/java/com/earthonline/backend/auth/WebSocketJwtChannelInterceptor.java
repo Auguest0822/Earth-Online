@@ -31,7 +31,7 @@ public class WebSocketJwtChannelInterceptor implements ChannelInterceptor {
         // 必须取出消息原本的 accessor，不能直接用 StompHeaderAccessor.wrap(message)：
         // wrap(...) 返回的是 new StompHeaderAccessor(message) 副本，
         // 在副本上 setUser 既不会写进消息头，也不会触发 StompSubProtocolHandler
-        // 注册的 userChangeCallback，于是 WebSocket 会话没有 Principal、
+        // 注册的 userChangeCallback，于是 WebSocket 会话没有 Principal
         // SimpUserRegistry 里也没有这个用户，
         // 之后 SimpMessagingTemplate.convertAndSendToUser(username, ...) 找不到会话，
         // 新消息、已读回执、好友事件等私人队列推送都会被静默丢弃。

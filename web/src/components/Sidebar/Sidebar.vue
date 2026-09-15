@@ -26,8 +26,8 @@
             </svg>
           </el-icon>
           <el-icon v-else><component :is="item.icon" /></el-icon>
-          <span v-if="item.icon === 'Friends' && chatNotificationStore.totalUnread" class="unread-badge" :aria-label="`${chatNotificationStore.totalUnread} 条未读消息`">
-            {{ chatNotificationStore.totalUnread > 99 ? '99+' : chatNotificationStore.totalUnread }}
+          <span v-if="item.icon === 'Friends' && chatNotificationStore.friendsBadge" class="unread-badge" :aria-label="`${chatNotificationStore.friendsBadge} 条朋友消息（含好友申请）`">
+            {{ chatNotificationStore.friendsBadge > 99 ? '99+' : chatNotificationStore.friendsBadge }}
           </span>
         </span>
         <span>{{ item.label }}</span>

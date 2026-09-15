@@ -1,5 +1,6 @@
 import { API_BASE_URL } from './config'
 
+//token存取
 const TOKEN_KEY = 'earth-online:access-token'
 let redirectingToLogin = false
 
@@ -22,9 +23,12 @@ export const request = async (path, options = {}) => {
   const { method = 'GET', body, params, headers = {}, signal } = options
   const isFormData = body instanceof FormData
   const query = params ? `?${new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== '')).toString()}` : ''
+//判断请求是否需要携带token
   const isAuthRequest = path === '/auth/login' || path === '/auth/register'
   const token = isAuthRequest ? '' : getAccessToken()
+
   let response
+  //发送请求
   try {
     response = await fetch(`${API_BASE_URL}${path}${query}`, {
       method,
@@ -41,9 +45,10 @@ export const request = async (path, options = {}) => {
     if (error?.name === 'AbortError') throw error
     throw new ApiError('无法连接服务器，请检查网络或稍后重试', 0, null)
   }
-
+  //响应体解析
   const contentType = response.headers.get('content-type') || ''
   const data = contentType.includes('application/json') ? await response.json() : await response.text()
+  //401全局登出
   if (!response.ok) {
     const isLoginPage = window.location.pathname === '/login'
     // Only an existing token can expire. A visitor without a token should be

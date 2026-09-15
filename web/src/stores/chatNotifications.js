@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { getAccessToken } from '@/api/httpClient'
 import { connectChatSocket, disconnectChatSocket, isChatSocketConnected } from '@/api/chatSocket'
 import { listChatUnreadCounts, markChatMessagesRead } from '@/api/modules/chat'
+import { listReceivedFriendRequests } from '@/api/modules/friends'
 
 const listeners = new Set()
 const receivedMessageIds = new Set()
@@ -68,13 +69,19 @@ const bindSoundUnlockHandlers = () => {
 export const useChatNotificationStore = defineStore('chatNotifications', {
   state: () => ({
     unreadByFriend: {},
+    // 待处理的好友申请数量：和未读聊天一样计入侧边栏“朋友”红点
+    pendingFriendRequests: 0,
     connected: false,
     initialized: false
   }),
   getters: {
     totalUnread: state => Object.values(state.unreadByFriend)
       .reduce((total, count) => total + (Number(count) || 0), 0),
-    unreadFor: state => friendPublicId => Number(state.unreadByFriend[friendPublicId]) || 0
+    unreadFor: state => friendPublicId => Number(state.unreadByFriend[friendPublicId]) || 0,
+    // 侧边栏“朋友”一栏的红点：未读聊天 + 待处理好友申请
+    friendsBadge() {
+      return this.totalUnread + (Number(this.pendingFriendRequests) || 0)
+    }
   },
   actions: {
     subscribe(listener) {
@@ -95,13 +102,23 @@ export const useChatNotificationStore = defineStore('chatNotifications', {
       this.unreadByFriend = { ...this.unreadByFriend, [friendPublicId]: 0 }
       await markChatMessagesRead(friendPublicId)
     },
+    // 拉取“待处理的好友申请”数量，保证刷新页面后红点数量依然准确
+    async refreshPendingFriendRequests() {
+      const result = await listReceivedFriendRequests()
+      const list = Array.isArray(result) ? result : (result?.content || result?.items || [])
+      this.pendingFriendRequests = list.length
+      return list
+    },
+    setPendingFriendRequests(count) {
+      this.pendingFriendRequests = Math.max(0, Number(count) || 0)
+    },
     async initialize() {
       if (!getAccessToken()) return
       bindSoundUnlockHandlers()
       if (this.initialized && isChatSocketConnected()) return
       this.initialized = true
       try {
-        await this.refreshUnreadCounts()
+        await Promise.all([this.refreshUnreadCounts(), this.refreshPendingFriendRequests()])
       } catch {
         // 首次未读数获取失败时，连接建立后仍可继续接收新消息。
       }
@@ -123,11 +140,18 @@ export const useChatNotificationStore = defineStore('chatNotifications', {
           emit('onMessage', message)
         },
         onReadReceipt: receipt => emit('onReadReceipt', receipt),
-        onFriendEvent: event => emit('onFriendEvent', event),
+        onFriendEvent: event => {
+          if (event?.type === 'REQUEST_RECEIVED') {
+            // 收到好友申请按“消息”处理：响铃提示 + 刷新待处理数量（侧边栏红点）
+            playNotificationSound()
+            this.refreshPendingFriendRequests().catch(() => {})
+          }
+          emit('onFriendEvent', event)
+        },
         onConnectionChange: connected => { this.connected = connected },
         onReconnect: async () => {
           try {
-            await this.refreshUnreadCounts()
+            await Promise.all([this.refreshUnreadCounts(), this.refreshPendingFriendRequests()])
           } finally {
             emit('onReconnect')
           }
@@ -138,6 +162,7 @@ export const useChatNotificationStore = defineStore('chatNotifications', {
       this.initialized = false
       this.connected = false
       this.unreadByFriend = {}
+      this.pendingFriendRequests = 0
       receivedMessageIds.clear()
       await disconnectChatSocket()
     }
