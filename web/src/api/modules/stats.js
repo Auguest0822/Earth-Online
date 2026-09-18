@@ -11,3 +11,5 @@ export const queryYearlyMemory = (year, question) => request('/ai/yearly-memory/
   method: 'POST',
   body: { year, question }
 })
+// 读取上一次的问答缓存：没有缓存时后端返回 204，request 会得到空字符串
+export const getYearlyMemoryAnswer = year => request('/ai/yearly-memory/answer', { params: { year } })

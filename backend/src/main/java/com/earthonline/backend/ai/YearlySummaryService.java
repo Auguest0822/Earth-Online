@@ -13,10 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.LocalDate;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,7 +41,7 @@ public class YearlySummaryService {
     public Optional<YearlySummaryResponse> getCached(String username, int year) {
         UserEntity user = requireUser(username);
         List<RecordEntity> records = recordsForYear(user.getId(), year);
-        String sourceHash = sourceHash(records);
+        String sourceHash = YearlyRecordFingerprint.of(records);
         return summaryRepository.findByUserIdAndYear(user.getId(), year)
                 .map(entity -> toResponse(entity, !entity.getSourceHash().equals(sourceHash)));
     }
@@ -55,7 +52,7 @@ public class YearlySummaryService {
         if (records.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, year + " 年暂无记录，无法生成年度总结");
         }
-        String sourceHash = sourceHash(records);
+        String sourceHash = YearlyRecordFingerprint.of(records);
         Optional<YearlySummaryEntity> cached = summaryRepository.findByUserIdAndYear(user.getId(), year);
         if (!regenerate && cached.isPresent() && cached.get().getSourceHash().equals(sourceHash)) {
             return toResponse(cached.get(), false);
@@ -82,21 +79,6 @@ public class YearlySummaryService {
     private UserEntity requireUser(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "登录状态无效"));
-    }
-
-    private String sourceHash(List<RecordEntity> records) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            for (RecordEntity record : records) {
-                String stable = "%s\u001f%s\u001f%s\u001f%s\u001f%s\u001f%s\n".formatted(
-                        record.getId(), record.getRecordDate(), record.getTitle(), record.getContent(),
-                        record.getMood(), String.join("\u001e", record.getKeywords()));
-                digest.update(stable.getBytes(StandardCharsets.UTF_8));
-            }
-            return HexFormat.of().formatHex(digest.digest());
-        } catch (Exception exception) {
-            throw new IllegalStateException("Cannot hash yearly records", exception);
-        }
     }
 
     private YearlySummaryResponse toResponse(YearlySummaryEntity entity, boolean stale) {

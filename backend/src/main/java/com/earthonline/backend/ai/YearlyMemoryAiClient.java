@@ -50,6 +50,11 @@ public class YearlyMemoryAiClient {
         this.restClient = RestClient.builder().baseUrl(baseUrl).requestFactory(requestFactory).build();
     }
 
+    /** 实际使用的模型名，保存进缓存表，方便以后换模型时判断缓存是否要重算。 */
+    public String model() {
+        return model;
+    }
+
     public String answer(int year, String question, List<RecordEntity> records) {
         if (apiKey.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,

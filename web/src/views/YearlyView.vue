@@ -126,8 +126,16 @@
           </div>
 
           <div v-else-if="memoryAnswer" class="memory-answer">
-            <div class="answer-heading"><span class="answer-mark">AI</span><h4>回忆回答</h4></div>
+            <div class="answer-heading">
+              <span class="answer-mark">AI</span><h4>回忆回答</h4>
+              <span v-if="memoryAnswer.updatedAt" class="answer-time">
+                上次提问于 {{ formatSummaryTime(memoryAnswer.updatedAt) }}
+              </span>
+            </div>
             <p>{{ memoryAnswer.answer }}</p>
+            <p v-if="memoryAnswer.stale" class="answer-stale">
+              这一年的记录在回答之后有变化，可以重新提问获得新的回答。
+            </p>
             <div class="source-heading">
               <h4>回答依据</h4><span>{{ memoryAnswer.sources.length }} 条记录</span>
             </div>
@@ -156,7 +164,7 @@ import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useProfileStore } from '@/stores/profile'
 import DataAnalysis from '@/components/Profile/DataAnalysis.vue'
-import { generateYearlySummary, getYearlySummary, queryYearlyMemory } from '@/api/modules/stats'
+import { generateYearlySummary, getYearlyMemoryAnswer, getYearlySummary, queryYearlyMemory } from '@/api/modules/stats'
 
 const profileStore = useProfileStore()
 const router = useRouter()
@@ -239,6 +247,21 @@ const generateSummary = async () => {
   }
 }
 
+const loadMemoryAnswer = async () => {
+  // 进入页面 / 切换年份时读取上一次的问答缓存，命中就不再调用 AI
+  memoryAnswer.value = null
+  if (selectedYear.value === 'all') return
+  try {
+    const cached = await getYearlyMemoryAnswer(Number(selectedYear.value))
+    if (!cached) return
+    if (cached.question) memoryQuestion.value = cached.question
+    memoryAnswer.value = cached
+  } catch (error) {
+    // 缓存读取失败不打扰用户：保持空状态，直接提问仍然可用
+    console.warn('回忆问答缓存读取失败', error)
+  }
+}
+
 const askMemory = async () => {
   if (!canAskMemory.value) return
   memoryLoading.value = true
@@ -264,14 +287,15 @@ const formatSummaryTime = value => value
   : ''
 
 watch(selectedYear, () => {
-  memoryAnswer.value = null
   summaryExpanded.value = false
   loadSummary()
+  loadMemoryAnswer()
 })
 
 onMounted(async () => {
   await profileStore.fetchProfileData()
-  if (profileStore.backendAvailable) await loadSummary()
+  if (!profileStore.backendAvailable) return
+  await Promise.all([loadSummary(), loadMemoryAnswer()])
 })
 </script>
 
@@ -492,6 +516,22 @@ onMounted(async () => {
   color: $text-regular;
 
   > p { margin: 14px 0 24px; color: $text-main; font-size: 15px; line-height: 1.9; }
+  /* 缓存提示：视觉上比正文轻，避免抢走回答本身的注意力 */
+  > .answer-stale {
+    margin: -10px 0 20px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: rgba(230, 162, 60, .1);
+    color: #b57b1a;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+}
+
+.answer-time {
+  margin-left: auto;
+  color: $text-secondary;
+  font-size: 12px;
 }
 
 .answer-heading {
