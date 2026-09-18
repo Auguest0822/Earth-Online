@@ -2,6 +2,10 @@ services:
   mysql:
     image: mysql:8.4
     restart: unless-stopped
+    # 只绑定本机：供 SSH 隧道 / DataGrip 使用，公网仍然无法访问数据库。
+    # 配合 DataGrip 的 “Use SSH tunnel” 连接 127.0.0.1:3306 查看数据。
+    ports:
+      - "127.0.0.1:3306:3306"
     environment:
       MYSQL_DATABASE: earth_online
       MYSQL_USER: earth_online
