@@ -1,202 +1,142 @@
 package com.earthonline.backend.ai;
 
-import com.earthonline.backend.ai.dto.MemorySourceResponse;
 import com.earthonline.backend.ai.dto.YearlyMemoryResponse;
-import com.earthonline.backend.records.RecordEntity;
-import com.earthonline.backend.records.RecordRepository;
-import com.earthonline.backend.user.UserEntity;
-import com.earthonline.backend.user.UserRepository;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.http.HttpStatus;
+import com.earthonline.backend.ai.dto.YearlyMemoryStreamEvents;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
+import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.Set;
 
+/**
+ * 年度回忆问答的编排层：负责“什么时候调 AI、什么时候落库、什么时候往前端推事件”，
+ * 具体的数据库操作在 {@link YearlyMemoryStore} 里（那边管事务边界）。
+ *
+ * 三个入口：
+ * <ul>
+ *   <li>{@link #getSaved} 读上一次的问答缓存（进入页面时用）；</li>
+ *   <li>{@link #query} 一次性拿到完整回答（老接口，保留作为降级路径）；</li>
+ *   <li>{@link #stream} 流式输出（新接口，逐字推给前端）。</li>
+ * </ul>
+ */
 @Service
 public class YearlyMemoryService {
-    private static final int MAX_SOURCES = 5;
-    private static final int EXCERPT_LENGTH = 120;
-    /** 提示词版本：以后改了提示词，可以用它判断旧缓存要不要重算。 */
-    private static final String PROMPT_VERSION = "v1";
-    private static final Set<String> QUESTION_FILLERS = Set.of(
-            "这一年", "今年", "哪些", "什么", "怎么", "如何", "有没有", "请", "帮我", "一下", "事情", "记录");
+    private static final Logger log = LoggerFactory.getLogger(YearlyMemoryService.class);
 
-    private final UserRepository userRepository;
-    private final RecordRepository recordRepository;
-    private final YearlyMemoryAnswerRepository answerRepository;
+    private final YearlyMemoryStore store;
     private final YearlyMemoryAiClient aiClient;
-    private final ObjectMapper objectMapper;
+    private final YearlyMemoryStreamClient streamClient;
 
-    public YearlyMemoryService(UserRepository userRepository, RecordRepository recordRepository,
-                               YearlyMemoryAnswerRepository answerRepository, YearlyMemoryAiClient aiClient,
-                               ObjectMapper objectMapper) {
-        this.userRepository = userRepository;
-        this.recordRepository = recordRepository;
-        this.answerRepository = answerRepository;
+    public YearlyMemoryService(YearlyMemoryStore store, YearlyMemoryAiClient aiClient,
+                               YearlyMemoryStreamClient streamClient) {
+        this.store = store;
         this.aiClient = aiClient;
-        this.objectMapper = objectMapper;
+        this.streamClient = streamClient;
     }
 
-    /**
-     * 读取上一次的问答缓存。没有缓存时返回空（前端会显示成“还没有问过”）。
-     * 与年度总结的 GET 接口行为保持一致。
-     */
-    @Transactional(readOnly = true)
+    /** 读取上一次的问答缓存。没有缓存时返回空（前端显示成“还没有问过”）。 */
     public Optional<YearlyMemoryResponse> getSaved(String username, int year) {
-        UserEntity user = requireUser(username);
-        String sourceHash = YearlyRecordFingerprint.of(recordsForYear(user.getId(), year));
-        return answerRepository.findByUserIdAndYear(user.getId(), year)
-                .map(entity -> toResponse(entity, !entity.getSourceHash().equals(sourceHash)));
-    }
-
-    /** 提问并回答，同时把这次问答覆盖保存为该用户该年的缓存。 */
-    @Transactional
-    public YearlyMemoryResponse query(String username, int year, String rawQuestion) {
-        UserEntity user = requireUser(username);
-        List<RecordEntity> yearlyRecords = recordsForYear(user.getId(), year);
-        if (yearlyRecords.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, year + " 年暂无记录，无法进行回忆问答");
-        }
-
-        String question = rawQuestion.trim();
-        List<ScoredRecord> ranked = yearlyRecords.stream()
-                .map(record -> new ScoredRecord(record, relevance(question, record)))
-                .sorted(Comparator.comparingDouble(ScoredRecord::score).reversed()
-                        .thenComparing(item -> item.record().getRecordDate(), Comparator.reverseOrder()))
-                .toList();
-
-        List<RecordEntity> sources = new ArrayList<>(ranked.stream()
-                .filter(item -> item.score() > 0)
-                .limit(MAX_SOURCES)
-                .map(ScoredRecord::record).toList());
-
-        // For broad questions such as “总结这一年的成长”, lexical matches may be sparse.
-        // Fill the remaining context with the latest records, while keeping the user/year boundary intact.
-        if (sources.size() < Math.min(3, yearlyRecords.size())) {
-            ranked.stream().map(ScoredRecord::record).filter(record -> !sources.contains(record))
-                    .limit(Math.min(3, yearlyRecords.size()) - sources.size()).forEach(sources::add);
-        }
-
-        String answer = aiClient.answer(year, question, sources);
-        List<MemorySourceResponse> sourceResponses = sources.stream().map(record -> {
-            double rawScore = relevance(question, record);
-            double normalized = Math.min(1, rawScore / 30.0);
-            return new MemorySourceResponse(record.getId(), record.getTitle(), record.getRecordDate(),
-                    excerpt(record.getContent()), Math.round(normalized * 100.0) / 100.0);
-        }).toList();
-
-        YearlyMemoryAnswerEntity entity = answerRepository.findByUserIdAndYear(user.getId(), year)
-                .orElseGet(() -> new YearlyMemoryAnswerEntity(user.getId(), year));
-        try {
-            entity.update(question, answer, objectMapper.writeValueAsString(toSavedSources(sourceResponses)),
-                    YearlyRecordFingerprint.of(yearlyRecords), aiClient.model(), PROMPT_VERSION);
-        } catch (Exception exception) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "回忆问答保存失败", exception);
-        }
-        YearlyMemoryAnswerEntity saved = answerRepository.save(entity);
-        return new YearlyMemoryResponse(question, answer, year, sourceResponses, false, saved.getUpdatedAt());
+        return store.findSaved(username, year);
     }
 
     /**
-     * 存进数据库的“回答依据”。
+     * 提问并一次性返回完整回答，同时把这次问答覆盖保存为该用户该年的缓存。
      *
-     * 为什么要单独定义一个 record，而不是直接把 MemorySourceResponse 序列化？
-     * 因为这里注入的是 Jackson 2（AI 相关代码统一用它），而项目里没有引入 Jackson 2 的
-     * jsr310 模块，它不认识 java.time.LocalDate。于是把日期先转成 ISO 字符串再存，
-     * 读出来时再解析回 LocalDate，就能绕开模块缺失的问题，也保证存进库的 JSON 是可读的。
+     * 注意这里**没有** {@code @Transactional}：调用 AI 可能要 2~4 秒，
+     * 不能让一个数据库事务（和一个连接）陪着等这么久。检索和落库各自是短事务。
      */
-    private record SavedSource(Long recordId, String title, String date, String excerpt, double score) {
+    public YearlyMemoryResponse query(String username, int year, String rawQuestion) {
+        YearlyMemoryStore.Retrieval retrieval = store.retrieve(username, year, rawQuestion);
+        String answer = aiClient.answer(year, retrieval.question(), retrieval.records());
+        LocalDateTime updatedAt = store.save(username, year, retrieval.question(), answer,
+                retrieval.sources(), aiClient.model());
+        return new YearlyMemoryResponse(retrieval.question(), answer, year, retrieval.sources(), false, updatedAt);
     }
 
-    private List<SavedSource> toSavedSources(List<MemorySourceResponse> sources) {
-        return sources.stream()
-                .map(item -> new SavedSource(item.recordId(), item.title(),
-                        item.date() == null ? null : item.date().toString(), item.excerpt(), item.score()))
-                .toList();
+    /**
+     * 流式提问的第一步：同步完成检索。
+     *
+     * 之所以把它放在请求线程里同步做，而不是丢给异步线程，是因为**响应还没提交**时失败还能返回正常的 HTTP 错误。
+     * 一旦开始往流里写数据（HTTP 状态码已定型为 200），后面的失败就只能靠 error 事件传达了。
+     * 检索是一段只读短事务（十几毫秒），放在这里不影响“快速开流”。
+     */
+    public YearlyMemoryStore.Retrieval prepare(String username, int year, String rawQuestion) {
+        return store.retrieve(username, year, rawQuestion);
     }
 
-    private List<MemorySourceResponse> fromSavedSources(String json) throws Exception {
-        List<SavedSource> saved = objectMapper.readValue(json, new TypeReference<List<SavedSource>>() {});
-        return saved.stream()
-                .map(item -> new MemorySourceResponse(item.recordId(), item.title(),
-                        item.date() == null ? null : LocalDate.parse(item.date()), item.excerpt(), item.score()))
-                .toList();
-    }
-
-    private YearlyMemoryResponse toResponse(YearlyMemoryAnswerEntity entity, boolean stale) {
+    /**
+     * 流式提问：检索完成后先推依据，再逐段推正文，最后推结束事件。
+     *
+     * 三类异常分别处理：
+     * <ul>
+     *   <li>浏览器断开（用户关页面 / 切路由）：立刻停止上游生成，**不落库**（半截回答不该当缓存）；</li>
+     *   <li>业务异常（AI 限流、Key 未配置、超时）：通过 error 事件把原因告诉前端；</li>
+     *   <li>落库失败：只记日志，回答照常推完——用户已经看到的内容不能被一次写库失败毁掉。</li>
+     * </ul>
+     */
+    public void stream(String username, int year, YearlyMemoryStore.Retrieval retrieval, SseEmitter emitter) {
+        StringBuilder answer = new StringBuilder();
         try {
-            return new YearlyMemoryResponse(entity.getQuestion(), entity.getAnswer(), entity.getYear(),
-                    fromSavedSources(entity.getSourcesJson()), stale, entity.getUpdatedAt());
+            send(emitter, "meta", new YearlyMemoryStreamEvents.Meta(year, retrieval.question(), retrieval.sources()));
+
+            streamClient.streamAnswer(year, retrieval.question(), retrieval.records(), delta -> {
+                answer.append(delta);
+                send(emitter, "delta", new YearlyMemoryStreamEvents.Delta(delta));
+            });
+
+            LocalDateTime updatedAt = saveQuietly(username, year, retrieval, answer.toString(),
+                    streamClient.model());
+            send(emitter, "done", new YearlyMemoryStreamEvents.Done(updatedAt, answer.length()));
+            emitter.complete();
+        } catch (ClientGoneException exception) {
+            log.info("客户端已断开，停止生成回答（已生成 {} 字，不写入缓存）", answer.length());
+            emitter.complete();
+        } catch (ResponseStatusException exception) {
+            sendError(emitter, exception.getReason() == null ? "AI 回忆问答失败" : exception.getReason());
         } catch (Exception exception) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "回忆问答读取失败", exception);
+            log.error("流式回答失败", exception);
+            sendError(emitter, "AI 服务暂时不可用，请稍后重试");
         }
     }
 
-    private List<RecordEntity> recordsForYear(Long userId, int year) {
-        return recordRepository.findAllByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
-                userId, LocalDate.of(year, 1, 1), LocalDate.of(year, 12, 31));
-    }
-
-    private UserEntity requireUser(String username) {
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "登录状态无效"));
-    }
-
-    private double relevance(String question, RecordEntity record) {
-        String normalizedQuestion = normalize(question);
-        String title = normalize(record.getTitle());
-        String content = normalize(record.getContent());
-        String eventType = normalize(record.getEventType());
-        String mood = normalize(record.getMood());
-        String keywords = normalize(String.join(" ", record.getKeywords()));
-        double score = 0;
-
-        if (!title.isBlank() && (normalizedQuestion.contains(title) || title.contains(normalizedQuestion))) score += 14;
-        if (!eventType.isBlank() && normalizedQuestion.contains(eventType)) score += 7;
-        if (!mood.isBlank() && normalizedQuestion.contains(mood)) score += 7;
-        for (String keyword : record.getKeywords()) {
-            String value = normalize(keyword);
-            if (!value.isBlank() && normalizedQuestion.contains(value)) score += 9;
+    private LocalDateTime saveQuietly(String username, int year, YearlyMemoryStore.Retrieval retrieval,
+                                      String answer, String model) {
+        try {
+            return store.save(username, year, retrieval.question(), answer, retrieval.sources(), model);
+        } catch (Exception exception) {
+            log.error("流式回答已生成，但缓存保存失败（不影响本次回答）", exception);
+            return null;
         }
-        for (String token : queryTokens(normalizedQuestion)) {
-            if (title.contains(token)) score += 4;
-            if (keywords.contains(token)) score += 5;
-            if (eventType.contains(token) || mood.contains(token)) score += 3;
-            if (content.contains(token)) score += 1;
+    }
+
+    private void send(SseEmitter emitter, String name, Object payload) {
+        try {
+            emitter.send(SseEmitter.event().name(name).data(payload, MediaType.APPLICATION_JSON));
+        } catch (Exception exception) {
+            // 写入失败几乎只有一种原因：浏览器已经断开。抛出专用异常，让上层停掉上游调用并跳过落库。
+            throw new ClientGoneException(exception);
         }
-        return score;
     }
 
-    private Set<String> queryTokens(String question) {
-        String cleaned = question;
-        for (String filler : QUESTION_FILLERS) cleaned = cleaned.replace(filler, "");
-        Set<String> result = new LinkedHashSet<>();
-        for (String part : cleaned.split("[^\\p{IsHan}\\p{L}\\p{N}]+")) {
-            if (part.length() == 1) result.add(part);
-            for (int i = 0; i < part.length() - 1; i++) result.add(part.substring(i, i + 2));
+    private void sendError(SseEmitter emitter, String message) {
+        try {
+            emitter.send(SseEmitter.event().name("error")
+                    .data(new YearlyMemoryStreamEvents.Error(message), MediaType.APPLICATION_JSON));
+            emitter.complete();
+        } catch (Exception ignored) {
+            // 连 error 事件都发不出去，说明客户端早就没了，无需再处理
+            emitter.complete();
         }
-        return result;
     }
 
-    private String normalize(String value) {
-        return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("\\s+", "").trim();
-    }
-
-    private String excerpt(String content) {
-        String value = content == null ? "" : content.replaceAll("\\s+", " ").trim();
-        return value.length() <= EXCERPT_LENGTH ? value : value.substring(0, EXCERPT_LENGTH) + "…";
-    }
-
-    private record ScoredRecord(RecordEntity record, double score) {
+    /** 客户端断开：不是服务端错误，不需要当成异常上报。 */
+    private static final class ClientGoneException extends RuntimeException {
+        private ClientGoneException(Throwable cause) {
+            super(cause);
+        }
     }
 }

@@ -60,11 +60,11 @@ public class YearlyMemoryAiClient {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "AI 回忆服务尚未配置，请设置 DEEPSEEK_API_KEY");
         }
-        String prompt = buildPrompt(year, question, records);
+        String prompt = YearlyMemoryPrompt.build(year, question, records);
         Map<String, Object> body = Map.of(
                 "model", model,
                 "messages", List.of(
-                        Map.of("role", "system", "content", SYSTEM_PROMPT),
+                        Map.of("role", "system", "content", YearlyMemoryPrompt.SYSTEM_PROMPT),
                         Map.of("role", "user", "content", prompt)),
                 "temperature", 0.3,
                 "max_tokens", 700,
@@ -94,32 +94,4 @@ public class YearlyMemoryAiClient {
         }
     }
 
-    private String buildPrompt(int year, String question, List<RecordEntity> records) {
-        StringBuilder context = new StringBuilder();
-        for (int index = 0; index < records.size(); index++) {
-            RecordEntity record = records.get(index);
-            String content = safe(record.getContent());
-            if (content.length() > MAX_CONTENT_LENGTH) {
-                content = content.substring(0, MAX_CONTENT_LENGTH) + "…";
-            }
-            context.append("[记录").append(index + 1).append("] 日期：").append(record.getRecordDate())
-                    .append("；标题：").append(safe(record.getTitle()))
-                    .append("；类型：").append(safe(record.getEventType()))
-                    .append("；心情：").append(safe(record.getMood()))
-                    .append("；关键词：").append(String.join("、", record.getKeywords()))
-                    .append("；正文：").append(content).append('\n');
-        }
-        return """
-                用户正在回顾 %d 年，问题是：%s
-
-                以下是系统检索出的相关个人记录：
-                %s
-
-                请综合这些记录直接回答问题。描述具体经历时注明日期或标题；没有依据时明确说明。
-                """.formatted(year, question.trim(), context);
-    }
-
-    private String safe(String value) {
-        return value == null ? "" : value.trim();
-    }
 }

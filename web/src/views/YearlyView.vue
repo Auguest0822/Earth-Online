@@ -111,7 +111,9 @@
               show-word-limit resize="none" placeholder="例如：这一年有哪些让我开心的事情？"
               :disabled="selectedYear === 'all' || memoryLoading" @keydown.ctrl.enter.prevent="askMemory" />
             <el-button type="primary" :loading="memoryLoading"
-              :disabled="!canAskMemory" @click="askMemory">开始回忆</el-button>
+              :disabled="!canAskMemory" @click="askMemory">
+              {{ memoryLoading ? '生成中' : (memoryAnswer ? '重新提问' : '开始回忆') }}
+            </el-button>
           </div>
 
           <div class="suggested-questions">
@@ -120,7 +122,7 @@
               :disabled="selectedYear === 'all' || memoryLoading" @click="useSuggestedQuestion(item)">{{ item }}</button>
           </div>
 
-          <div v-if="memoryLoading" class="memory-loading">
+          <div v-if="memoryLoading && !memoryAnswer" class="memory-loading">
             <el-skeleton :rows="4" animated />
             <span>正在翻阅与你问题相关的记录…</span>
           </div>
@@ -128,11 +130,14 @@
           <div v-else-if="memoryAnswer" class="memory-answer">
             <div class="answer-heading">
               <span class="answer-mark">AI</span><h4>回忆回答</h4>
+              <!-- 两种来源要能一眼区分：实时生成是流式的；来自缓存是直接读数据库（瞬间出现，这是缓存的意义） -->
+              <span v-if="memoryLoading" class="answer-tag live">实时生成中…</span>
+              <span v-else-if="memoryFromCache" class="answer-tag cache">来自上次问答</span>
               <span v-if="memoryAnswer.updatedAt" class="answer-time">
                 上次提问于 {{ formatSummaryTime(memoryAnswer.updatedAt) }}
               </span>
             </div>
-            <p>{{ memoryAnswer.answer }}</p>
+            <p>{{ memoryAnswer.answer }}<span v-if="memoryLoading" class="stream-cursor"></span></p>
             <p v-if="memoryAnswer.stale" class="answer-stale">
               这一年的记录在回答之后有变化，可以重新提问获得新的回答。
             </p>
@@ -159,12 +164,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useProfileStore } from '@/stores/profile'
 import DataAnalysis from '@/components/Profile/DataAnalysis.vue'
 import { generateYearlySummary, getYearlyMemoryAnswer, getYearlySummary, queryYearlyMemory } from '@/api/modules/stats'
+import { streamYearlyMemory } from '@/api/modules/aiStream'
 
 const profileStore = useProfileStore()
 const router = useRouter()
@@ -177,6 +183,8 @@ const summaryExpanded = ref(false)
 const memoryQuestion = ref('')
 const memoryAnswer = ref(null)
 const memoryLoading = ref(false)
+// true 表示当前显示的是“上次问答的缓存”（瞬间出现），false 表示刚刚由 AI 实时生成（流式出现）
+const memoryFromCache = ref(false)
 const suggestedQuestions = ['总结我的成长', '这一年有哪些开心的事情？', '哪些事情影响了我的心情？', '回顾我的学习经历']
 
 const yearOptions = computed(() => {
@@ -250,27 +258,112 @@ const generateSummary = async () => {
 const loadMemoryAnswer = async () => {
   // 进入页面 / 切换年份时读取上一次的问答缓存，命中就不再调用 AI
   memoryAnswer.value = null
+  memoryFromCache.value = false
   if (selectedYear.value === 'all') return
   try {
     const cached = await getYearlyMemoryAnswer(Number(selectedYear.value))
     if (!cached) return
     if (cached.question) memoryQuestion.value = cached.question
     memoryAnswer.value = cached
+    memoryFromCache.value = true
   } catch (error) {
     // 缓存读取失败不打扰用户：保持空状态，直接提问仍然可用
     console.warn('回忆问答缓存读取失败', error)
   }
 }
 
+// 流式提问的临时状态：AI 每吐一小段就回调一次，直接改 ref 会让 Vue 每秒重渲染上百次，
+// 所以先攒在 pendingDelta 里，按时间片（约 40ms）合并刷新一次。
+let memoryController = null
+let pendingDelta = ''
+let flushTimer = null
+
+const flushDeltas = () => {
+  if (flushTimer) {
+    clearTimeout(flushTimer)
+    flushTimer = null
+  }
+  if (!pendingDelta || !memoryAnswer.value) return
+  memoryAnswer.value = { ...memoryAnswer.value, answer: memoryAnswer.value.answer + pendingDelta }
+  pendingDelta = ''
+}
+
+const scheduleFlush = () => {
+  if (flushTimer) return
+  flushTimer = setTimeout(flushDeltas, 40)
+}
+
+const stopMemoryStream = () => {
+  if (memoryController) {
+    memoryController.abort()
+    memoryController = null
+  }
+  pendingDelta = ''
+  if (flushTimer) {
+    clearTimeout(flushTimer)
+    flushTimer = null
+  }
+}
+
 const askMemory = async () => {
   if (!canAskMemory.value) return
+  stopMemoryStream()
   memoryLoading.value = true
   memoryAnswer.value = null
+  memoryFromCache.value = false
+  memoryController = new AbortController()
+  const year = Number(selectedYear.value)
+  const question = memoryQuestion.value.trim()
+  let received = false
+
   try {
-    memoryAnswer.value = await queryYearlyMemory(Number(selectedYear.value), memoryQuestion.value.trim())
+    await streamYearlyMemory(year, question, {
+      // 检索完成：先把问题、依据显示出来，用户在等第一个字的时候就能看到来源卡片
+      meta: payload => {
+        memoryAnswer.value = {
+          year: payload.year,
+          question: payload.question,
+          answer: '',
+          sources: payload.sources || [],
+          stale: false,
+          updatedAt: null
+        }
+      },
+      delta: payload => {
+        received = true
+        pendingDelta += payload.text
+        scheduleFlush()
+      },
+      done: payload => {
+        flushDeltas()
+        if (payload.updatedAt && memoryAnswer.value) {
+          memoryAnswer.value = { ...memoryAnswer.value, updatedAt: payload.updatedAt }
+        }
+      },
+      // 流中途的失败只能通过 error 事件传达，这里抛出去交给下面的 catch
+      error: payload => {
+        throw new Error(payload.message || 'AI 回忆问答失败')
+      }
+    }, memoryController.signal)
   } catch (error) {
-    ElMessage.error(error.message || 'AI 回忆问答失败')
+    if (error?.name === 'AbortError') {
+      flushDeltas()
+      return
+    }
+    if (received) {
+      // 已经吐了一部分内容，保留它并提示失败，不再重复调用 AI
+      ElMessage.error(error.message || 'AI 回忆问答失败')
+    } else {
+      // 一个字都没收到就失败了：退回一次性接口，保证功能可用
+      try {
+        memoryAnswer.value = await queryYearlyMemory(year, question)
+        memoryFromCache.value = false
+      } catch (fallbackError) {
+        ElMessage.error(fallbackError.message || 'AI 回忆问答失败')
+      }
+    }
   } finally {
+    flushDeltas()
     memoryLoading.value = false
   }
 }
@@ -287,6 +380,7 @@ const formatSummaryTime = value => value
   : ''
 
 watch(selectedYear, () => {
+  stopMemoryStream()
   summaryExpanded.value = false
   loadSummary()
   loadMemoryAnswer()
@@ -297,6 +391,9 @@ onMounted(async () => {
   if (!profileStore.backendAvailable) return
   await Promise.all([loadSummary(), loadMemoryAnswer()])
 })
+
+// 离开页面要中断流：否则用户切走后后端还在生成（白白消耗 token）
+onBeforeUnmount(stopMemoryStream)
 </script>
 
 <style lang="scss" scoped>
@@ -532,6 +629,39 @@ onMounted(async () => {
   margin-left: auto;
   color: $text-secondary;
   font-size: 12px;
+}
+
+/* 来源标签：让“实时生成（流式）”和“来自缓存（瞬间出现）”一眼能区分 */
+.answer-tag {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 18px;
+
+  &.live {
+    background: rgba(102, 194, 138, .16);
+    color: #2f8f57;
+  }
+
+  &.cache {
+    background: rgba(144, 147, 153, .14);
+    color: $text-secondary;
+  }
+}
+
+/* 流式生成中的光标：让用户明确看到“还在写” */
+.stream-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 3px;
+  background: $primary-color;
+  vertical-align: text-bottom;
+  animation: stream-blink 1s steps(2, start) infinite;
+}
+
+@keyframes stream-blink {
+  to { visibility: hidden; }
 }
 
 .answer-heading {

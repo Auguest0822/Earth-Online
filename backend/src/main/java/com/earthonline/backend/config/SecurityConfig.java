@@ -36,6 +36,12 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+                        // SSE 流式接口（/api/ai/yearly-memory/stream）在结束时会被容器再派发一次（ASYNC dispatch）。
+                        // Spring Security 默认对这一趟也做鉴权，而这一趟请求里没有 JWT 过滤器重新认证，
+                        // 于是会被判成“未登录”，异常又因为响应已经提交而无法处理，最终导致流被硬生生掐断。
+                        // 放行 ASYNC 是安全的：它不是新的外部请求，只是同一个请求的继续，
+                        // 真正的入口请求（DispatcherType.REQUEST）仍然完整地走过 JWT 鉴权。
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         .requestMatchers(this::isPublicRequest).permitAll()
                         .anyRequest().authenticated()
                 )
