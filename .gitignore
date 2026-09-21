@@ -34,6 +34,9 @@ deploy/.env
 server/node_modules/
 server/.env
 
+# 本地文档（只在本机保留，不随仓库发布）
+docs/
+
 # Flutter mobile (future)
 apps/mobile/.dart_tool/
 apps/mobile/build/
